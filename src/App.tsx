@@ -20,7 +20,7 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { PresetsModal } from './components/PresetsModal';
 import { ExportModal } from './components/ExportModal';
 import { SettingsModal } from './components/SettingsModal';
-import { MonthPickerModal } from './components/MonthPickerModal';
+import { MonthDaysModal } from './components/MonthDaysModal';
 import { BottomTabBar } from './components/BottomTabBar';
 
 import { 
@@ -75,6 +75,7 @@ export function App() {
     return getCurrentMonthString();
   });
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // Swipe gesture detection
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -122,10 +123,12 @@ export function App() {
 
   // Handle month stepper
   const handlePrevMonth = () => {
+    setSelectedDate(null);
     setSelectedMonth(prev => shiftMonth(prev, -1));
   };
 
   const handleNextMonth = () => {
+    setSelectedDate(null);
     setSelectedMonth(prev => shiftMonth(prev, 1));
   };
 
@@ -240,7 +243,11 @@ export function App() {
       if (statusFilter !== 'ALL' && o.status !== statusFilter) {
         return false;
       }
-      if (selectedMonth !== 'ALL') {
+      if (selectedDate) {
+        const matchReceive = o.receiveDate === selectedDate;
+        const matchDelivery = o.deliveryDate === selectedDate;
+        if (!matchReceive && !matchDelivery) return false;
+      } else if (selectedMonth !== 'ALL') {
         const inReceive = o.receiveDate.startsWith(selectedMonth);
         const inDelivery = o.deliveryDate ? o.deliveryDate.startsWith(selectedMonth) : false;
         if (!inReceive && !inDelivery) return false;
@@ -265,9 +272,11 @@ export function App() {
     let totalPendingQty = 0;
     let totalFabricKg = 0;
 
-    const relevantOrders = selectedMonth === 'ALL' 
-      ? orders 
-      : orders.filter(o => o.receiveDate.startsWith(selectedMonth) || (o.deliveryDate && o.deliveryDate.startsWith(selectedMonth)));
+    const relevantOrders = selectedDate 
+      ? orders.filter(o => o.receiveDate === selectedDate || o.deliveryDate === selectedDate)
+      : (selectedMonth === 'ALL' 
+          ? orders 
+          : orders.filter(o => o.receiveDate.startsWith(selectedMonth) || (o.deliveryDate && o.deliveryDate.startsWith(selectedMonth))));
 
     relevantOrders.forEach(o => {
       if (o.status === 'DELIVERED') {
@@ -389,7 +398,7 @@ export function App() {
               title="Bấm để chọn tháng"
             >
               <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-              <span>{formatMonthLabel(selectedMonth)}</span>
+              <span>{selectedDate ? formatDateVN(selectedDate) : formatMonthLabel(selectedMonth)}</span>
             </button>
 
             <button
@@ -457,35 +466,10 @@ export function App() {
             </button>
           </div>
         </div>
-        {/* Small swipe gesture hint */}
-        <div className="flex justify-between items-center text-[10px] text-slate-400 px-1 mb-2 font-medium">
-          <span>‹ Vuốt ngang để đổi tháng ›</span>
-          <span className="font-semibold text-indigo-600">{formatMonthLabel(selectedMonth)}</span>
-        </div>
-
         {/* TAB 1: DASHBOARD */}
         {currentTab === 'dashboard' && (
           <div className="space-y-3 animate-in fade-in duration-200">
             
-            {/* PRIMARY DATA ENTRY BUTTON (RÕ RÀNG 100%) */}
-            <button
-              onClick={handleOpenAddModal}
-              className="w-full p-4 rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-600 text-white shadow-xl shadow-indigo-600/25 active:scale-98 transition-all flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3 text-left">
-                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center ring-2 ring-white/30">
-                  <Plus className="w-6 h-6 text-white stroke-[3]" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold tracking-tight">+ Nhập Công Đoạn May Mới</h3>
-                  <p className="text-[11px] text-indigo-100">Chọn công đoạn mẫu, số lượng, kí vải & tính tiền</p>
-                </div>
-              </div>
-              <div className="px-3.5 py-2 rounded-xl bg-white text-indigo-700 text-xs font-black shrink-0 shadow-md">
-                Nhập ngay
-              </div>
-            </button>
-
             {/* Stat Cards */}
             <StatCards
               totalDeliveredAmount={stats.totalDeliveredAmount}
@@ -577,15 +561,6 @@ export function App() {
         {currentTab === 'orders' && (
           <div className="space-y-2.5 animate-in fade-in duration-200">
             
-            {/* Quick Add Button in Sổ Công Đoạn */}
-            <button
-              onClick={handleOpenAddModal}
-              className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-98 transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              + Thêm Công Đoạn May Mới
-            </button>
-
             {/* Search Input & Sort Toggle Row */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -825,11 +800,16 @@ export function App() {
       />
 
       {/* MODALS */}
-      <MonthPickerModal
+      <MonthDaysModal
         isOpen={isMonthPickerOpen}
         onClose={() => setIsMonthPickerOpen(false)}
         selectedMonth={selectedMonth}
-        onSelectMonth={setSelectedMonth}
+        selectedDate={selectedDate}
+        orders={orders}
+        onSelectDate={setSelectedDate}
+        onSelectMonth={m => {
+          setSelectedMonth(m);
+        }}
       />
 
       <OrderModal
