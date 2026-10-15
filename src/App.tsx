@@ -20,13 +20,46 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { PresetsModal } from './components/PresetsModal';
 import { ExportModal } from './components/ExportModal';
 import { SettingsModal } from './components/SettingsModal';
+import { MonthPickerModal } from './components/MonthPickerModal';
 import { BottomTabBar } from './components/BottomTabBar';
 
 import { 
   Search, Plus, CheckCircle2, Clock, 
-  TrendingUp, Scissors, ChevronRight, FileSpreadsheet, Settings, 
+  TrendingUp, Scissors, ChevronRight, ChevronLeft, FileSpreadsheet, Settings, 
   Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar
 } from 'lucide-react';
+
+function getCurrentMonthString(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function formatMonthLabel(monthStr: string): string {
+  if (!monthStr || monthStr === 'ALL') return 'Toàn bộ';
+  const parts = monthStr.split('-');
+  if (parts.length === 2) {
+    return `Tháng ${parseInt(parts[1], 10)}/${parts[0]}`;
+  }
+  return monthStr;
+}
+
+function shiftMonth(monthStr: string, delta: number): string {
+  const base = monthStr === 'ALL' ? getCurrentMonthString() : monthStr;
+  const [yStr, mStr] = base.split('-');
+  let y = parseInt(yStr, 10);
+  let m = parseInt(mStr, 10) + delta;
+
+  if (m < 1) {
+    m = 12;
+    y -= 1;
+  } else if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
 
 export function App() {
   const [orders, setOrders] = useState<SewingOrder[]>(loadOrders);
@@ -36,7 +69,12 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | OrderStatus>('ALL');
-  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
+  
+  // Selected month: e.g. '2026-10' or 'ALL'
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    return getCurrentMonthString();
+  });
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
 
   // Sort order: 'desc' (mới nhất trước) hoặc 'asc' (từ ngày cũ đến mới theo dòng thời gian)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>(() => {
@@ -56,6 +94,15 @@ export function App() {
   const [isPresetsOpen, setPresetsOpen] = useState(false);
   const [isExportOpen, setExportOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+
+  // Handle month stepper
+  const handlePrevMonth = () => {
+    setSelectedMonth(prev => shiftMonth(prev, -1));
+  };
+
+  const handleNextMonth = () => {
+    setSelectedMonth(prev => shiftMonth(prev, 1));
+  };
 
   // Toggle sort order
   const handleToggleSort = () => {
@@ -156,18 +203,6 @@ export function App() {
     };
   }, [applyCloudPayload]);
 
-  // Extract distinct months from orders, including current real-time month
-  const availableMonths = useMemo(() => {
-    const set = new Set<string>();
-    const currentMonth = new Date().toISOString().substring(0, 7);
-    set.add(currentMonth);
-    orders.forEach(o => {
-      if (o.receiveDate) set.add(o.receiveDate.substring(0, 7));
-      if (o.deliveryDate) set.add(o.deliveryDate.substring(0, 7));
-    });
-    return Array.from(set).sort().reverse();
-  }, [orders]);
-
   // Filtered & Sorted orders by real calendar date
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
@@ -187,7 +222,6 @@ export function App() {
       }
       return true;
     }).sort((a, b) => {
-      // Sắp xếp theo ngày nhận/giao thực tế (real-time date sorting)
       const dateA = a.receiveDate || '';
       const dateB = b.receiveDate || '';
       const diff = sortOrder === 'desc' 
@@ -312,40 +346,50 @@ export function App() {
     <div className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       {/* Main Container */}
       <main className="max-w-md mx-auto px-3.5 pt-2">
-        {/* Ultra-compact Top Control Bar: Month Chips + Sync Status + Icons */}
+        {/* Clean Header Bar: Month Stepper + All Toggle + Icons */}
         <div className="flex items-center justify-between gap-1.5 mb-2.5">
-          {/* Month Filter Chips */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none no-scrollbar flex-1 py-1 text-xs">
+          {/* Month Stepper Navigator */}
+          <div className="flex items-center bg-white/80 border border-slate-200/80 rounded-2xl p-0.5 shadow-sm">
             <button
-              onClick={() => setSelectedMonth('ALL')}
-              className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
-                selectedMonth === 'ALL'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200'
-              }`}
+              onClick={handlePrevMonth}
+              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 active:scale-95 transition-all"
+              title="Tháng trước"
             >
-              Tất cả
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            {availableMonths.map(m => {
-              const [y, mon] = m.split('-');
-              return (
-                <button
-                  key={m}
-                  onClick={() => setSelectedMonth(m)}
-                  className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
-                    selectedMonth === m
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
-                      : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200'
-                  }`}
-                >
-                  Tháng {parseInt(mon, 10)}/{y}
-                </button>
-              );
-            })}
+
+            <button
+              onClick={() => setIsMonthPickerOpen(true)}
+              className="px-2 py-1 text-xs font-bold text-slate-800 hover:text-indigo-600 flex items-center gap-1 active:scale-95 transition-all"
+              title="Bấm để chọn tháng"
+            >
+              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{formatMonthLabel(selectedMonth)}</span>
+            </button>
+
+            <button
+              onClick={handleNextMonth}
+              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 active:scale-95 transition-all"
+              title="Tháng sau"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
+          {/* Quick "Toàn bộ" Toggle */}
+          <button
+            onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? getCurrentMonthString() : 'ALL')}
+            className={`px-3 py-1.5 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
+              selectedMonth === 'ALL'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200/80'
+            }`}
+          >
+            Tất cả
+          </button>
+
           {/* Quick Action Icons: Cloud Sync Indicator + Export & Settings */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0 ml-auto">
             {/* Cloud Sync Status Indicator */}
             <button
               onClick={() => setSettingsOpen(true)}
@@ -589,7 +633,7 @@ export function App() {
                   Thu nhập tiền công
                 </span>
                 <span className="text-[10px] font-semibold text-slate-400">
-                  {selectedMonth === 'ALL' ? 'Toàn bộ thời gian' : `Tháng ${selectedMonth}`}
+                  {formatMonthLabel(selectedMonth)}
                 </span>
               </div>
               <div className="text-2xl font-black font-mono text-emerald-400">
@@ -721,6 +765,13 @@ export function App() {
       />
 
       {/* MODALS */}
+      <MonthPickerModal
+        isOpen={isMonthPickerOpen}
+        onClose={() => setIsMonthPickerOpen(false)}
+        selectedMonth={selectedMonth}
+        onSelectMonth={setSelectedMonth}
+      />
+
       <OrderModal
         isOpen={isOrderModalOpen}
         onClose={() => setOrderModalOpen(false)}
