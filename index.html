@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS Web App Optimization -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="MayTrack">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#f1f5f9">
+
+    <!-- App Favicon & Apple Touch Icon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧵</text></svg>">
+    
+    <title>MayTrack - Quản Lý Tiền Công Đoạn May</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              ios: {
+                blue: '#007AFF',
+                purple: '#5856D6',
+                pink: '#FF2D55',
+                green: '#34C759',
+                orange: '#FF9500',
+                yellow: '#FFCC00',
+                teal: '#5AC8FA',
+                indigo: '#5856D6',
+                gray: '#8E8E93',
+                card: 'rgba(255, 255, 255, 0.82)',
+                cardDark: 'rgba(28, 28, 30, 0.82)',
+              }
+            },
+            boxShadow: {
+              'ios-card': '0 8px 30px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03)',
+              'ios-card-lg': '0 14px 40px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
+              'ios-floating': '0 20px 45px rgba(0, 122, 255, 0.22), 0 4px 10px rgba(0, 0, 0, 0.05)',
+              'glass': '0 10px 30px 0 rgba(31, 38, 135, 0.07)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root {
+        --sat: env(safe-area-inset-top, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+      }
+      
+      body {
+        background-color: #f1f5f9;
+        min-height: 100vh;
+        color: #0f172a;
+        overflow-x: hidden;
+        overscroll-behavior-y: none;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: manipulation;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        padding-top: env(safe-area-inset-top);
+      }
+
+      input, textarea, select {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      /* Hide spin buttons for input type number */
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type=number] {
+        -moz-appearance: textfield;
+      }
+
+      /* Aurora background effects */
+      .bg-aurora {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        overflow: hidden;
+        background: #f8fafc;
+        transform: translate3d(0,0,0);
+      }
+      .aurora-blob-1 {
+        position: absolute;
+        top: -15%;
+        left: -15%;
+        width: 65vw;
+        height: 65vw;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(243, 244, 246, 0) 70%);
+        filter: blur(60px);
+      }
+      .aurora-blob-2 {
+        position: absolute;
+        bottom: 5%;
+        right: -10%;
+        width: 70vw;
+        height: 70vw;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.16) 0%, rgba(243, 244, 246, 0) 70%);
+        filter: blur(60px);
+      }
+      .aurora-blob-3 {
+        position: absolute;
+        top: 35%;
+        right: 10%;
+        width: 45vw;
+        height: 45vw;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(236, 72, 153, 0.12) 0%, rgba(243, 244, 246, 0) 70%);
+        filter: blur(55px);
+      }
+
+      /* iOS Glass Styles */
+      .ios-glass {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(24px) saturate(190%);
+        -webkit-backdrop-filter: blur(24px) saturate(190%);
+        border: 1px solid rgba(255, 255, 255, 0.65);
+      }
+
+      .ios-glass-subtle {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+
+      .ios-glass-nav {
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        border-top: 1px solid rgba(226, 232, 240, 0.8);
+      }
+
+      * { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body>
+    <div class="bg-aurora">
+      <div class="aurora-blob-1"></div>
+      <div class="aurora-blob-2"></div>
+      <div class="aurora-blob-3"></div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
