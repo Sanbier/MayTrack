@@ -15,7 +15,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 }) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 ios-glass-nav pb-[env(safe-area-inset-bottom)]">
-      <div className="max-w-md mx-auto px-4 py-2 flex items-center justify-around relative">
+      <div className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-around relative">
         {/* Tab 1: Dashboard */}
         <button
           onClick={() => onChangeTab('dashboard')}
@@ -43,14 +43,15 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         </button>
 
         {/* Floating Quick Action Button (+) in Center */}
-        <div className="-mt-6 flex flex-col items-center">
+        <div className="-mt-7 flex flex-col items-center">
           <button
             onClick={onOpenAddModal}
             aria-label="Thêm công đoạn mới"
-            className="w-13 h-13 p-3.5 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 text-white shadow-ios-floating active:scale-90 hover:scale-105 transition-all ring-4 ring-white"
+            className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 text-white shadow-ios-floating active:scale-90 hover:scale-105 transition-all ring-4 ring-white flex items-center justify-center"
           >
-            <Plus className="w-6 h-6 stroke-[2.5]" />
+            <Plus className="w-7 h-7 stroke-[2.5]" />
           </button>
+          <span className="text-[9px] font-bold text-indigo-600 mt-0.5">Nhập mới</span>
         </div>
 
         {/* Tab 3: Reports */}

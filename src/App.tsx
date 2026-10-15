@@ -75,6 +75,31 @@ export function App() {
     return getCurrentMonthString();
   });
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  // Swipe gesture detection
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+      if (deltaX < 0) {
+        handleNextMonth();
+      } else {
+        handlePrevMonth();
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
 
   // Sort order: 'desc' (mới nhất trước) hoặc 'asc' (từ ngày cũ đến mới theo dòng thời gian)
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>(() => {
@@ -343,7 +368,7 @@ export function App() {
   }, [orders]);
 
   return (
-    <div className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       {/* Main Container */}
       <main className="max-w-md mx-auto px-3.5 pt-2">
         {/* Clean Header Bar: Month Stepper + All Toggle + Icons */}
@@ -432,10 +457,35 @@ export function App() {
             </button>
           </div>
         </div>
+        {/* Small swipe gesture hint */}
+        <div className="flex justify-between items-center text-[10px] text-slate-400 px-1 mb-2 font-medium">
+          <span>‹ Vuốt ngang để đổi tháng ›</span>
+          <span className="font-semibold text-indigo-600">{formatMonthLabel(selectedMonth)}</span>
+        </div>
 
         {/* TAB 1: DASHBOARD */}
         {currentTab === 'dashboard' && (
           <div className="space-y-3 animate-in fade-in duration-200">
+            
+            {/* PRIMARY DATA ENTRY BUTTON (RÕ RÀNG 100%) */}
+            <button
+              onClick={handleOpenAddModal}
+              className="w-full p-4 rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-600 text-white shadow-xl shadow-indigo-600/25 active:scale-98 transition-all flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center ring-2 ring-white/30">
+                  <Plus className="w-6 h-6 text-white stroke-[3]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold tracking-tight">+ Nhập Công Đoạn May Mới</h3>
+                  <p className="text-[11px] text-indigo-100">Chọn công đoạn mẫu, số lượng, kí vải & tính tiền</p>
+                </div>
+              </div>
+              <div className="px-3.5 py-2 rounded-xl bg-white text-indigo-700 text-xs font-black shrink-0 shadow-md">
+                Nhập ngay
+              </div>
+            </button>
+
             {/* Stat Cards */}
             <StatCards
               totalDeliveredAmount={stats.totalDeliveredAmount}
@@ -526,6 +576,16 @@ export function App() {
         {/* TAB 2: SỔ CÔNG ĐOẠN (ORDERS LIST) */}
         {currentTab === 'orders' && (
           <div className="space-y-2.5 animate-in fade-in duration-200">
+            
+            {/* Quick Add Button in Sổ Công Đoạn */}
+            <button
+              onClick={handleOpenAddModal}
+              className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-98 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              + Thêm Công Đoạn May Mới
+            </button>
+
             {/* Search Input & Sort Toggle Row */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
