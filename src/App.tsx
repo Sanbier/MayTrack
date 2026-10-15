@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { SewingOrder, StagePreset, WorkshopSettings, TabType, OrderStatus } from './types';
 import { 
   loadOrders, saveOrders, 
@@ -6,6 +6,10 @@ import {
   loadSettings, saveSettings, 
   INITIAL_ORDERS, DEFAULT_PRESETS, DEFAULT_SETTINGS 
 } from './utils/storage';
+import { 
+  getCloudUrl, fetchFromCloud, pushToCloud, 
+  subscribeToCloudUpdates, CloudPayload 
+} from './utils/cloudSync';
 import { formatVND, formatNumber, formatKg, formatDateVN } from './utils/format';
 
 import { StatCards } from './components/StatCard';
@@ -20,7 +24,8 @@ import { BottomTabBar } from './components/BottomTabBar';
 
 import { 
   Search, Plus, CheckCircle2, Clock, 
-  TrendingUp, Scissors, ChevronRight, FileSpreadsheet, Settings, RefreshCw
+  TrendingUp, Scissors, ChevronRight, FileSpreadsheet, Settings, 
+  Cloud, CloudLightning, RefreshCw 
 } from 'lucide-react';
 
 export function App() {
@@ -32,6 +37,11 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | OrderStatus>('ALL');
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
+
+  // Cloud Sync state
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudConnected, setCloudConnected] = useState<boolean>(() => !!getCloudUrl());
+  const isRemoteUpdating = useRef(false);
 
   // Modals state
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
@@ -54,6 +64,88 @@ export function App() {
   useEffect(() => {
     saveSettings(settings);
   }, [settings]);
+
+  // Handle incoming cloud payload
+  const applyCloudPayload = useCallback((payload: CloudPayload) => {
+    isRemoteUpdating.current = true;
+    if (payload.orders && Array.isArray(payload.orders)) {
+      setOrders(payload.orders);
+    }
+    if (payload.presets && Array.isArray(payload.presets)) {
+      setPresets(payload.presets);
+    }
+    if (payload.settings && typeof payload.settings === 'object') {
+      setSettings(payload.settings);
+    }
+    setCloudConnected(true);
+    setTimeout(() => {
+      isRemoteUpdating.current = false;
+    }, 500);
+  }, []);
+
+  // Background auto-push to cloud when data changes locally
+  useEffect(() => {
+    if (isRemoteUpdating.current) return;
+    const url = getCloudUrl();
+    if (!url) return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        setIsCloudSyncing(true);
+        await pushToCloud(orders, presets, settings, url);
+        setCloudConnected(true);
+      } catch (err) {
+        console.warn('Auto-sync push failed, will retry later');
+      } finally {
+        setIsCloudSyncing(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [orders, presets, settings]);
+
+  // Cloud initial fetch & SSE real-time listener
+  useEffect(() => {
+    const url = getCloudUrl();
+    if (!url) {
+      setCloudConnected(false);
+      return;
+    }
+
+    // 1. Initial pull
+    setIsCloudSyncing(true);
+    fetchFromCloud(url)
+      .then(data => {
+        if (data && data.orders) {
+          applyCloudPayload(data);
+        }
+        setCloudConnected(true);
+      })
+      .catch(() => {
+        setCloudConnected(false);
+      })
+      .finally(() => {
+        setIsCloudSyncing(false);
+      });
+
+    // 2. Real-time listener
+    const unsubscribe = subscribeToCloudUpdates(url, payload => {
+      applyCloudPayload(payload);
+    });
+
+    // 3. Sync on window focus (when user switches back to Safari / browser)
+    const handleFocus = () => {
+      fetchFromCloud(url).then(data => {
+        if (data && data.orders) applyCloudPayload(data);
+      }).catch(() => {});
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [applyCloudPayload]);
 
   // Extract distinct months from orders (e.g. "2026-07", "2026-10")
   const availableMonths = useMemo(() => {
@@ -184,12 +276,12 @@ export function App() {
 
   return (
     <div className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      {/* Main Container - Optimized to start right at the top */}
+      {/* Main Container */}
       <main className="max-w-md mx-auto px-3.5 pt-2">
-        {/* Ultra-compact Top Control Bar: Month Chips + Export & Settings Icons */}
-        <div className="flex items-center justify-between gap-2 mb-3">
+        {/* Ultra-compact Top Control Bar: Month Chips + Sync Status + Icons */}
+        <div className="flex items-center justify-between gap-1.5 mb-3">
           {/* Month Filter Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar flex-1 py-1 text-xs">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none no-scrollbar flex-1 py-1 text-xs">
             <button
               onClick={() => setSelectedMonth('ALL')}
               className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
@@ -218,18 +310,44 @@ export function App() {
             })}
           </div>
 
-          {/* Quick Action Icons: Export & Settings */}
+          {/* Quick Action Icons: Cloud Sync Indicator + Export & Settings */}
           <div className="flex items-center gap-1 shrink-0">
+            {/* Cloud Sync Status Indicator */}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title={
+                isCloudSyncing 
+                  ? 'Đang đồng bộ đám mây...' 
+                  : cloudConnected 
+                  ? 'Đang đồng bộ thời gian thực (Bấm để xem)' 
+                  : 'Chưa cài đồng bộ đám mây (Bấm để cài)'
+              }
+              className={`p-2 rounded-xl border shadow-sm active:scale-95 transition-all flex items-center justify-center ${
+                cloudConnected
+                  ? 'bg-emerald-50/90 text-emerald-700 border-emerald-200'
+                  : 'bg-white/80 text-slate-400 border-slate-200/80 hover:text-slate-600'
+              }`}
+            >
+              {isCloudSyncing ? (
+                <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
+              ) : cloudConnected ? (
+                <CloudLightning className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <Cloud className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+
             <button
               onClick={() => setExportOpen(true)}
-              title="Xuất file Google Sheet"
+              title="Xuất file / Sao lưu"
               className="p-2 rounded-xl bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 shadow-sm active:scale-95 transition-all"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             </button>
+
             <button
               onClick={() => setSettingsOpen(true)}
-              title="Cài đặt thông tin"
+              title="Cài đặt"
               className="p-2 rounded-xl bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 shadow-sm active:scale-95 transition-all"
             >
               <Settings className="w-4 h-4 text-slate-600" />
@@ -497,7 +615,7 @@ export function App() {
               className="w-full py-3 px-4 rounded-2xl bg-white border border-slate-200 text-slate-800 text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-98 transition-all flex items-center justify-center gap-2"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              Tải file Excel / CSV giống Google Sheet
+              Tải file Excel / CSV
             </button>
           </div>
         )}
@@ -600,7 +718,10 @@ export function App() {
         isOpen={isSettingsOpen}
         onClose={() => setSettingsOpen(false)}
         settings={settings}
-        onSave={setSettings}
+        onSaveSettings={setSettings}
+        orders={orders}
+        presets={presets}
+        onCloudSyncApply={applyCloudPayload}
       />
     </div>
   );
