@@ -1,5 +1,6 @@
 import { SewingOrder, StagePreset, WorkshopSettings } from '../types';
 
+export const DEFAULT_CLOUD_URL = 'https://maytrack-default-rtdb.asia-southeast1.firebasedatabase.app';
 const CLOUD_URL_KEY = 'maytrack_cloud_db_url_v1';
 const LAST_SYNC_KEY = 'maytrack_last_sync_time_v1';
 
@@ -21,7 +22,12 @@ export function getDeviceId(): string {
 }
 
 export function getCloudUrl(): string {
-  return (localStorage.getItem(CLOUD_URL_KEY) || '').trim();
+  const saved = localStorage.getItem(CLOUD_URL_KEY);
+  if (saved !== null && saved !== undefined && saved !== '') {
+    return saved.trim();
+  }
+  // Mặc định kết nối tự động tới database của bạn
+  return DEFAULT_CLOUD_URL;
 }
 
 export function setCloudUrl(url: string): void {
@@ -133,9 +139,10 @@ export function subscribeToCloudUpdates(
   baseUrl: string,
   onRemoteChange: (payload: CloudPayload) => void
 ): () => void {
-  if (!baseUrl) return () => {};
+  const url = baseUrl || getCloudUrl();
+  if (!url) return () => {};
 
-  const endpoint = getEndpoint(baseUrl);
+  const endpoint = getEndpoint(url);
   let eventSource: EventSource | null = null;
 
   try {
@@ -146,7 +153,7 @@ export function subscribeToCloudUpdates(
         const parsed = JSON.parse(event.data);
         if (parsed && parsed.data && typeof parsed.data === 'object') {
           const payload = parsed.data as CloudPayload;
-          // Bỏ qua nếu sự kiện do chính thiết bị này vừa gửi lên
+          // Bỏ qua nếu là sự kiện phát sinh từ chính thiết bị này vừa đẩy lên
           if (payload.deviceId && payload.deviceId === getDeviceId()) {
             return;
           }
