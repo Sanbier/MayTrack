@@ -80,7 +80,13 @@ export async function fetchFromCloud(baseUrl?: string): Promise<CloudPayload | n
 
     const data = await res.json();
     if (data && typeof data === 'object') {
-      return data as CloudPayload;
+      return {
+        ...data,
+        orders: Array.isArray(data.orders) ? data.orders : [],
+        presets: Array.isArray(data.presets) ? data.presets : [],
+        settings: data.settings || {},
+        lastUpdated: data.lastUpdated || Date.now(),
+      } as CloudPayload;
     }
     return null;
   } catch (err) {
@@ -148,21 +154,39 @@ export function subscribeToCloudUpdates(
   try {
     eventSource = new EventSource(endpoint);
 
-    eventSource.addEventListener('put', (event: MessageEvent) => {
+    eventSource.addEventListener('put', async (event: MessageEvent) => {
       try {
         const parsed = JSON.parse(event.data);
-        if (parsed && parsed.data && typeof parsed.data === 'object') {
+        if (!parsed) return;
+        if (parsed.path === '/' && parsed.data && typeof parsed.data === 'object') {
           const payload = parsed.data as CloudPayload;
-          // Bỏ qua nếu là sự kiện phát sinh từ chính thiết bị này vừa đẩy lên
           if (payload.deviceId && payload.deviceId === getDeviceId()) {
             return;
           }
-          if (payload.orders && Array.isArray(payload.orders)) {
-            onRemoteChange(payload);
+          const incomingOrders = Array.isArray(payload.orders) ? payload.orders : [];
+          onRemoteChange({
+            ...payload,
+            orders: incomingOrders,
+          });
+        } else if (parsed.path !== '/') {
+          const fresh = await fetchFromCloud(baseUrl);
+          if (fresh && fresh.deviceId !== getDeviceId()) {
+            onRemoteChange(fresh);
           }
         }
       } catch (e) {
         console.error('Lỗi phân tích SSE:', e);
+      }
+    });
+
+    eventSource.addEventListener('patch', async () => {
+      try {
+        const fresh = await fetchFromCloud(baseUrl);
+        if (fresh && fresh.deviceId !== getDeviceId()) {
+          onRemoteChange(fresh);
+        }
+      } catch (e) {
+        console.error('Lỗi phân tích SSE patch:', e);
       }
     });
 

@@ -50,14 +50,15 @@ const STORAGE_KEYS = {
 export function loadOrders(): SewingOrder[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    if (!raw) {
-      saveOrders(INITIAL_ORDERS);
-      return INITIAL_ORDERS;
+    if (raw !== null && raw !== undefined) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
-    return JSON.parse(raw);
+    // Trả về mảng rỗng để không bao giờ tự sinh đơn mẫu đè lên dữ liệu đã xóa trên đám mây
+    return [];
   } catch (e) {
     console.error('Failed to load orders', e);
-    return INITIAL_ORDERS;
+    return [];
   }
 }
 

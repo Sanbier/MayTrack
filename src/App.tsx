@@ -111,6 +111,7 @@ export function App() {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudConnected, setCloudConnected] = useState<boolean>(() => !!getCloudUrl());
   const isRemoteUpdating = useRef(false);
+  const hasInitialCloudSynced = useRef(false);
 
   // Modals state
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
@@ -155,23 +156,27 @@ export function App() {
   // Handle incoming cloud payload
   const applyCloudPayload = useCallback((payload: CloudPayload) => {
     isRemoteUpdating.current = true;
-    if (payload.orders && Array.isArray(payload.orders)) {
-      setOrders(payload.orders);
-    }
-    if (payload.presets && Array.isArray(payload.presets)) {
+    const incomingOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    setOrders(incomingOrders);
+    saveOrders(incomingOrders);
+
+    if (payload.presets && Array.isArray(payload.presets) && payload.presets.length > 0) {
       setPresets(payload.presets);
+      savePresets(payload.presets);
     }
-    if (payload.settings && typeof payload.settings === 'object') {
+    if (payload.settings && typeof payload.settings === 'object' && Object.keys(payload.settings).length > 0) {
       setSettings(payload.settings);
+      saveSettings(payload.settings);
     }
     setCloudConnected(true);
     setTimeout(() => {
       isRemoteUpdating.current = false;
-    }, 500);
+    }, 400);
   }, []);
 
   // Background auto-push to cloud when data changes locally
   useEffect(() => {
+    if (!hasInitialCloudSynced.current) return; // Không bao giờ đẩy đè dữ liệu cũ lên mây trước khi tải xong đám mây!
     if (isRemoteUpdating.current) return;
     const url = getCloudUrl();
     if (!url) return;
@@ -202,12 +207,14 @@ export function App() {
     setIsCloudSyncing(true);
     fetchFromCloud(url)
       .then(data => {
-        if (data && data.orders) {
+        if (data) {
           applyCloudPayload(data);
         }
+        hasInitialCloudSynced.current = true;
         setCloudConnected(true);
       })
       .catch(() => {
+        hasInitialCloudSynced.current = true;
         setCloudConnected(false);
       })
       .finally(() => {
@@ -218,16 +225,25 @@ export function App() {
       applyCloudPayload(payload);
     });
 
-    const handleFocus = () => {
+    const handleSync = () => {
       fetchFromCloud(url).then(data => {
-        if (data && data.orders) applyCloudPayload(data);
+        if (data) applyCloudPayload(data);
       }).catch(() => {});
     };
-    window.addEventListener('focus', handleFocus);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleSync();
+      }
+    };
+
+    window.addEventListener('focus', handleSync);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       unsubscribe();
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [applyCloudPayload]);
 
@@ -333,9 +349,25 @@ export function App() {
     });
   };
 
-  const handleDeleteOrder = (id: string) => {
+  const handleDeleteOrder = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa công đoạn may này không?')) {
-      setOrders(prev => prev.filter(o => o.id !== id));
+      const nextOrders = orders.filter(o => o.id !== id);
+      setOrders(nextOrders);
+      saveOrders(nextOrders);
+
+      // Đẩy xóa ngay lập tức lên đám mây để tất cả thiết bị khác xóa theo tức thì
+      const url = getCloudUrl();
+      if (url) {
+        setIsCloudSyncing(true);
+        try {
+          await pushToCloud(nextOrders, presets, settings, url);
+          setCloudConnected(true);
+        } catch (e) {
+          console.error('Delete sync failed:', e);
+        } finally {
+          setIsCloudSyncing(false);
+        }
+      }
     }
   };
 
