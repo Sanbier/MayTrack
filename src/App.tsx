@@ -8,7 +8,6 @@ import {
 } from './utils/storage';
 import { formatVND, formatNumber, formatKg, formatDateVN } from './utils/format';
 
-import { Header } from './components/Header';
 import { StatCards } from './components/StatCard';
 import { OrderCard } from './components/OrderCard';
 import { OrderModal } from './components/OrderModal';
@@ -20,8 +19,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { BottomTabBar } from './components/BottomTabBar';
 
 import { 
-  Search, Plus, Filter, Calendar, CheckCircle2, Clock, 
-  TrendingUp, Scissors, Sparkles, Layers, ChevronRight, FileSpreadsheet, Tag
+  Search, Plus, CheckCircle2, Clock, 
+  TrendingUp, Scissors, ChevronRight, FileSpreadsheet, Settings, RefreshCw
 } from 'lucide-react';
 
 export function App() {
@@ -98,7 +97,6 @@ export function App() {
     let totalPendingQty = 0;
     let totalFabricKg = 0;
 
-    // Filter by selected month for stats as well
     const relevantOrders = selectedMonth === 'ALL' 
       ? orders 
       : orders.filter(o => o.receiveDate.startsWith(selectedMonth) || (o.deliveryDate && o.deliveryDate.startsWith(selectedMonth)));
@@ -185,49 +183,63 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen text-slate-800 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
-      {/* Top Header */}
-      <Header
-        settings={settings}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onOpenExport={() => setExportOpen(true)}
-      />
+    <div className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      {/* Main Container - Optimized to start right at the top */}
+      <main className="max-w-md mx-auto px-3.5 pt-2">
+        {/* Ultra-compact Top Control Bar: Month Chips + Export & Settings Icons */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+          {/* Month Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar flex-1 py-1 text-xs">
+            <button
+              onClick={() => setSelectedMonth('ALL')}
+              className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
+                selectedMonth === 'ALL'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200'
+              }`}
+            >
+              Tất cả
+            </button>
+            {availableMonths.map(m => {
+              const [y, mon] = m.split('-');
+              return (
+                <button
+                  key={m}
+                  onClick={() => setSelectedMonth(m)}
+                  className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
+                    selectedMonth === m
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
+                      : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200'
+                  }`}
+                >
+                  Tháng {parseInt(mon, 10)}/{y}
+                </button>
+              );
+            })}
+          </div>
 
-      {/* Main Container */}
-      <main className="max-w-md mx-auto px-4 pt-3">
-        {/* Month Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none no-scrollbar mb-2 text-xs">
-          <button
-            onClick={() => setSelectedMonth('ALL')}
-            className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
-              selectedMonth === 'ALL'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-white/70 text-slate-600 hover:bg-white border border-slate-200'
-            }`}
-          >
-            Tất cả tháng
-          </button>
-          {availableMonths.map(m => {
-            const [y, mon] = m.split('-');
-            return (
-              <button
-                key={m}
-                onClick={() => setSelectedMonth(m)}
-                className={`px-3 py-1.5 rounded-full font-bold transition-all whitespace-nowrap ${
-                  selectedMonth === m
-                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
-                    : 'bg-white/70 text-slate-600 hover:bg-white border border-slate-200'
-                }`}
-              >
-                Tháng {parseInt(mon, 10)}/{y}
-              </button>
-            );
-          })}
+          {/* Quick Action Icons: Export & Settings */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setExportOpen(true)}
+              title="Xuất file Google Sheet"
+              className="p-2 rounded-xl bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 shadow-sm active:scale-95 transition-all"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Cài đặt thông tin"
+              className="p-2 rounded-xl bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 shadow-sm active:scale-95 transition-all"
+            >
+              <Settings className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
         </div>
 
         {/* TAB 1: DASHBOARD */}
         {currentTab === 'dashboard' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="space-y-3 animate-in fade-in duration-200">
             {/* Stat Cards */}
             <StatCards
               totalDeliveredAmount={stats.totalDeliveredAmount}
@@ -237,31 +249,12 @@ export function App() {
               totalFabricKg={stats.totalFabricKg}
             />
 
-            {/* Quick Action Banner */}
-            <div className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-500 text-white shadow-lg shadow-indigo-500/20 flex items-center justify-between">
-              <div className="space-y-0.5">
-                <span className="text-xs uppercase font-extrabold tracking-wider text-teal-200 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Ghi nhận tiến độ
-                </span>
-                <h3 className="text-sm font-bold">Thêm công đoạn hôm nay</h3>
-                <p className="text-[11px] text-indigo-100">Chọn nhanh đơn giá mẫu chỉ trong 5 giây</p>
-              </div>
-              <button
-                onClick={handleOpenAddModal}
-                className="px-4 py-2.5 rounded-2xl bg-white text-indigo-700 text-xs font-bold shadow-md hover:bg-indigo-50 active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                Thêm ngay
-              </button>
-            </div>
-
-            {/* Active / In-progress tasks header */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
+            {/* Active / In-progress tasks */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-amber-500" />
-                  <h3 className="text-sm font-bold text-slate-800">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                     Đang May & Chờ Giao ({orders.filter(o => o.status !== 'DELIVERED').length})
                   </h3>
                 </div>
@@ -276,7 +269,7 @@ export function App() {
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {orders.filter(o => o.status !== 'DELIVERED').slice(0, 3).map(order => (
                   <OrderCard
                     key={order.id}
@@ -289,21 +282,23 @@ export function App() {
                 ))}
 
                 {orders.filter(o => o.status !== 'DELIVERED').length === 0 && (
-                  <div className="p-6 text-center rounded-2xl ios-glass border border-dashed border-slate-300">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1.5" />
+                  <div className="p-5 text-center rounded-2xl ios-glass border border-dashed border-slate-300">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1" />
                     <p className="text-xs font-bold text-slate-700">Tất cả hàng đã được bàn giao!</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Không còn công đoạn nào đang chờ may</p>
+                    <p className="text-[11px] text-slate-400">Không còn công đoạn nào đang chờ may</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Recently Delivered */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-sm font-bold text-slate-800">Công Đoạn Vừa Giao Gần Đây</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Công Đoạn Vừa Giao Gần Đây
+                  </h3>
                 </div>
                 <button
                   onClick={() => {
@@ -316,7 +311,7 @@ export function App() {
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {orders.filter(o => o.status === 'DELIVERED').slice(0, 2).map(order => (
                   <OrderCard
                     key={order.id}
@@ -334,7 +329,7 @@ export function App() {
 
         {/* TAB 2: SỔ CÔNG ĐOẠN (ORDERS LIST) */}
         {currentTab === 'orders' && (
-          <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="space-y-2.5 animate-in fade-in duration-200">
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -392,7 +387,7 @@ export function App() {
             </div>
 
             {/* List of Orders */}
-            <div className="space-y-3 pt-1">
+            <div className="space-y-2.5 pt-1">
               {filteredOrders.map(order => (
                 <OrderCard
                   key={order.id}
@@ -405,19 +400,12 @@ export function App() {
               ))}
 
               {filteredOrders.length === 0 && (
-                <div className="py-12 text-center rounded-3xl ios-glass border border-slate-200">
-                  <Scissors className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <h4 className="text-sm font-bold text-slate-700">Chưa tìm thấy công đoạn nào</h4>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                    Hãy bấm nút (+) bên dưới để thêm công đoạn may mới vào sổ theo dõi.
+                <div className="py-10 text-center rounded-3xl ios-glass border border-slate-200">
+                  <Scissors className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
+                  <h4 className="text-xs font-bold text-slate-700">Không có công đoạn nào</h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Hãy bấm nút (+) để thêm công đoạn may mới
                   </p>
-                  <button
-                    onClick={handleOpenAddModal}
-                    className="mt-4 px-4 py-2 rounded-2xl bg-indigo-600 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Thêm công đoạn
-                  </button>
                 </div>
               )}
             </div>
@@ -426,22 +414,22 @@ export function App() {
 
         {/* TAB 3: BÁO CÁO & THỐNG KÊ (REPORTS) */}
         {currentTab === 'reports' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="space-y-3 animate-in fade-in duration-200">
             {/* Header Summary */}
-            <div className="p-5 rounded-3xl bg-slate-900 text-white shadow-xl relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-40 h-40 bg-indigo-500/20 rounded-full blur-2xl" />
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs uppercase font-extrabold tracking-wider text-indigo-300">
-                  Báo cáo thu nhập tiền công
+            <div className="p-4 rounded-3xl bg-slate-900 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] uppercase font-extrabold tracking-wider text-indigo-300">
+                  Thu nhập tiền công
                 </span>
-                <span className="text-[11px] font-semibold text-slate-400">
+                <span className="text-[10px] font-semibold text-slate-400">
                   {selectedMonth === 'ALL' ? 'Toàn bộ thời gian' : `Tháng ${selectedMonth}`}
                 </span>
               </div>
-              <div className="text-3xl font-black font-mono text-emerald-400">
+              <div className="text-2xl font-black font-mono text-emerald-400">
                 {formatVND(stats.totalDeliveredAmount)}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
+              <div className="mt-2.5 pt-2.5 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Tổng sản phẩm</span>
                   <span className="text-sm font-bold font-mono text-white">
@@ -458,23 +446,23 @@ export function App() {
             </div>
 
             {/* Breakdown by Sewing Stage */}
-            <div className="p-4 rounded-3xl ios-glass border border-white/70 shadow-ios-card">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+            <div className="p-3.5 rounded-3xl ios-glass border border-white/70 shadow-ios-card">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-indigo-600" />
                 Cơ cấu thu nhập theo công đoạn
               </h3>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {stageBreakdown.map((item, idx) => {
                   const percent = stats.totalDeliveredAmount > 0 
                     ? Math.round((item.amount / stats.totalDeliveredAmount) * 100) 
                     : 0;
 
                   return (
-                    <div key={item.name} className="p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+                    <div key={item.name} className="p-2.5 rounded-2xl bg-slate-50/80 border border-slate-100">
                       <div className="flex items-center justify-between text-xs mb-1">
                         <strong className="text-slate-800 flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center">
+                          <span className="w-4 h-4 rounded-md bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center">
                             {idx + 1}
                           </span>
                           {item.name}
@@ -483,14 +471,14 @@ export function App() {
                           {formatVND(item.amount)}
                         </span>
                       </div>
-                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1.5">
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
                         <div
                           className="bg-indigo-600 h-full rounded-full transition-all duration-500"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
                       <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
-                        <span>Sản lượng: {formatNumber(item.qty)} cái ({item.count} đơn)</span>
+                        <span>{formatNumber(item.qty)} cái ({item.count} đơn)</span>
                         <span>{percent}% tổng tiền</span>
                       </div>
                     </div>
@@ -498,7 +486,7 @@ export function App() {
                 })}
 
                 {stageBreakdown.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-4">Chưa có dữ liệu thống kê</p>
+                  <p className="text-xs text-slate-400 text-center py-3">Chưa có dữ liệu thống kê</p>
                 )}
               </div>
             </div>
@@ -506,7 +494,7 @@ export function App() {
             {/* Export Sheet Action */}
             <button
               onClick={() => setExportOpen(true)}
-              className="w-full py-3.5 px-4 rounded-2xl bg-white border border-slate-200 text-slate-800 text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-98 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 rounded-2xl bg-white border border-slate-200 text-slate-800 text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-98 transition-all flex items-center justify-center gap-2"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
               Tải file Excel / CSV giống Google Sheet
@@ -516,38 +504,32 @@ export function App() {
 
         {/* TAB 4: BẢNG GIÁ CÔNG ĐOẠN (PRESETS) */}
         {currentTab === 'presets' && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="p-4 rounded-3xl ios-glass border border-white/70 shadow-ios-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
-                    <Tag className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">Danh Mục Bảng Giá Mẫu</h3>
-                    <p className="text-[11px] text-slate-400">Chọn 1 chạm khi nhập đơn mới</p>
-                  </div>
+          <div className="space-y-3 animate-in fade-in duration-200">
+            <div className="p-3.5 rounded-3xl ios-glass border border-white/70 shadow-ios-card">
+              <div className="flex items-center justify-between mb-2.5">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Bảng Giá Công Đoạn Mẫu
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Chọn 1 chạm khi nhập đơn mới</p>
                 </div>
                 <button
                   onClick={() => setPresetsOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95"
+                  className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm active:scale-95"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3" />
                   Thêm mới
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {presets.map(p => (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 border border-slate-100"
+                    className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50/80 border border-slate-100"
                   >
-                    <div>
-                      <strong className="text-xs font-bold text-slate-800 block">{p.name}</strong>
-                      <span className="text-[10px] text-slate-400">Đơn giá tiêu chuẩn</span>
-                    </div>
-                    <span className="text-sm font-bold font-mono text-purple-700">
+                    <strong className="text-xs font-semibold text-slate-800">{p.name}</strong>
+                    <span className="text-xs font-bold font-mono text-purple-700">
                       {formatVND(p.defaultUnitPrice)}
                     </span>
                   </div>
@@ -557,9 +539,9 @@ export function App() {
 
             <button
               onClick={() => setPresetsOpen(true)}
-              className="w-full py-3 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all"
+              className="w-full py-2.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold border border-purple-200 flex items-center justify-center gap-1.5 transition-all"
             >
-              Chỉnh sửa & Quản lý danh mục
+              Chỉnh sửa danh mục bảng giá
             </button>
           </div>
         )}
