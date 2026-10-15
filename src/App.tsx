@@ -377,9 +377,24 @@ export function App() {
   }, [orders]);
 
   return (
-    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      {/* Main Container */}
-      <main className="max-w-md mx-auto px-3.5 pt-2">
+    // DESKTOP IPHONE SIMULATOR WRAPPER
+    <div className="w-full min-h-[100dvh] md:flex md:items-center md:justify-center md:bg-slate-950 md:py-6 md:px-4">
+      {/* PHONE SIMULATOR FRAME (iPhone 16 Pro / 15 Pro Max) */}
+      <div className="relative w-full h-[100dvh] md:w-[412px] md:h-[880px] md:max-h-[96vh] bg-[#f8fafc] md:rounded-[52px] md:border-[12px] md:border-[#1a1a1a] md:shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col ring-1 ring-white/10">
+
+        {/* Dynamic Island (Desktop Preview Only) */}
+        <div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 w-[125px] h-[30px] bg-black rounded-b-[20px] z-[60] pointer-events-none">
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-slate-900 ring-1 ring-slate-800" />
+        </div>
+
+        {/* SCROLLABLE MAIN VIEWPORT */}
+        <div 
+          onTouchStart={handleTouchStart} 
+          onTouchEnd={handleTouchEnd} 
+          className="w-full flex-1 overflow-y-auto overflow-x-hidden relative custom-scrollbar px-3.5 pt-2 md:pt-9 pb-24 text-slate-800"
+        >
+          {/* Main Container */}
+          <main className="w-full">
         {/* Clean Header Bar: Month Stepper + All Toggle + Icons */}
         <div className="flex items-center justify-between gap-1.5 mb-2.5">
           {/* Month Stepper Navigator */}
@@ -791,13 +806,14 @@ export function App() {
           </div>
         )}
       </main>
+        </div>
 
-      {/* Floating Bottom Tab Bar */}
-      <BottomTabBar
-        currentTab={currentTab}
-        onChangeTab={setCurrentTab}
-        onOpenAddModal={handleOpenAddModal}
-      />
+        {/* Floating Bottom Tab Bar */}
+        <BottomTabBar
+          currentTab={currentTab}
+          onChangeTab={setCurrentTab}
+          onOpenAddModal={handleOpenAddModal}
+        />
 
       {/* MODALS */}
       <MonthDaysModal
@@ -862,6 +878,7 @@ export function App() {
         presets={presets}
         onCloudSyncApply={applyCloudPayload}
       />
+      </div>
     </div>
   );
 }

@@ -14,8 +14,8 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   onOpenAddModal,
 }) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 ios-glass-nav pb-[env(safe-area-inset-bottom)]">
-      <div className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-around relative">
+    <div className="absolute bottom-0 left-0 right-0 z-40 ios-glass-nav pb-[calc(0.5rem+env(safe-area-inset-bottom))] bg-white/85 backdrop-blur-xl border-t border-slate-200/80">
+      <div className="w-full max-w-md mx-auto px-4 py-1 flex items-center justify-around relative">
         {/* Tab 1: Dashboard */}
         <button
           onClick={() => onChangeTab('dashboard')}
@@ -42,7 +42,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
           <span className="text-[10px]">Sổ công đoạn</span>
         </button>
 
-        {/* Floating Quick Action Button (+) in Center */}
+        {/* Floating Quick Action Button (+) in Center (Apple 56px style) */}
         <div className="-mt-7 flex flex-col items-center">
           <button
             onClick={onOpenAddModal}

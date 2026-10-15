@@ -99,7 +99,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed md:absolute inset-0 z-50 flex items-end justify-center p-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
