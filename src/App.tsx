@@ -25,7 +25,7 @@ import { BottomTabBar } from './components/BottomTabBar';
 import { 
   Search, Plus, CheckCircle2, Clock, 
   TrendingUp, Scissors, ChevronRight, FileSpreadsheet, Settings, 
-  Cloud, CloudLightning, RefreshCw 
+  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar
 } from 'lucide-react';
 
 export function App() {
@@ -37,6 +37,11 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | OrderStatus>('ALL');
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
+
+  // Sort order: 'desc' (mới nhất trước) hoặc 'asc' (từ ngày cũ đến mới theo dòng thời gian)
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>(() => {
+    return (localStorage.getItem('maytrack_sort_order') as 'desc' | 'asc') || 'desc';
+  });
 
   // Cloud Sync state
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
@@ -51,6 +56,13 @@ export function App() {
   const [isPresetsOpen, setPresetsOpen] = useState(false);
   const [isExportOpen, setExportOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+
+  // Toggle sort order
+  const handleToggleSort = () => {
+    const next = sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortOrder(next);
+    localStorage.setItem('maytrack_sort_order', next);
+  };
 
   // Sync to local storage
   useEffect(() => {
@@ -112,7 +124,6 @@ export function App() {
       return;
     }
 
-    // 1. Initial pull
     setIsCloudSyncing(true);
     fetchFromCloud(url)
       .then(data => {
@@ -128,12 +139,10 @@ export function App() {
         setIsCloudSyncing(false);
       });
 
-    // 2. Real-time listener
     const unsubscribe = subscribeToCloudUpdates(url, payload => {
       applyCloudPayload(payload);
     });
 
-    // 3. Sync on window focus (when user switches back to Safari / browser)
     const handleFocus = () => {
       fetchFromCloud(url).then(data => {
         if (data && data.orders) applyCloudPayload(data);
@@ -147,9 +156,11 @@ export function App() {
     };
   }, [applyCloudPayload]);
 
-  // Extract distinct months from orders (e.g. "2026-07", "2026-10")
+  // Extract distinct months from orders, including current real-time month
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    set.add(currentMonth);
     orders.forEach(o => {
       if (o.receiveDate) set.add(o.receiveDate.substring(0, 7));
       if (o.deliveryDate) set.add(o.deliveryDate.substring(0, 7));
@@ -157,29 +168,35 @@ export function App() {
     return Array.from(set).sort().reverse();
   }, [orders]);
 
-  // Filtered orders
+  // Filtered & Sorted orders by real calendar date
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
-      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = o.stageName.toLowerCase().includes(q);
         const matchNote = o.note ? o.note.toLowerCase().includes(q) : false;
         if (!matchName && !matchNote) return false;
       }
-      // Status filter
       if (statusFilter !== 'ALL' && o.status !== statusFilter) {
         return false;
       }
-      // Month filter
       if (selectedMonth !== 'ALL') {
         const inReceive = o.receiveDate.startsWith(selectedMonth);
         const inDelivery = o.deliveryDate ? o.deliveryDate.startsWith(selectedMonth) : false;
         if (!inReceive && !inDelivery) return false;
       }
       return true;
-    }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  }, [orders, searchQuery, statusFilter, selectedMonth]);
+    }).sort((a, b) => {
+      // Sắp xếp theo ngày nhận/giao thực tế (real-time date sorting)
+      const dateA = a.receiveDate || '';
+      const dateB = b.receiveDate || '';
+      const diff = sortOrder === 'desc' 
+        ? dateB.localeCompare(dateA) 
+        : dateA.localeCompare(dateB);
+      if (diff !== 0) return diff;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }, [orders, searchQuery, statusFilter, selectedMonth, sortOrder]);
 
   // Calculations
   const stats = useMemo(() => {
@@ -274,12 +291,29 @@ export function App() {
     setSettings(DEFAULT_SETTINGS);
   };
 
+  // Orders for Dashboard sorted chronologically
+  const activeDashboardOrders = useMemo(() => {
+    return orders
+      .filter(o => o.status !== 'DELIVERED')
+      .sort((a, b) => b.receiveDate.localeCompare(a.receiveDate));
+  }, [orders]);
+
+  const recentDeliveredDashboardOrders = useMemo(() => {
+    return orders
+      .filter(o => o.status === 'DELIVERED')
+      .sort((a, b) => {
+        const dateA = a.deliveryDate || a.receiveDate;
+        const dateB = b.deliveryDate || b.receiveDate;
+        return dateB.localeCompare(dateA);
+      });
+  }, [orders]);
+
   return (
     <div className="min-h-screen text-slate-800 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       {/* Main Container */}
       <main className="max-w-md mx-auto px-3.5 pt-2">
         {/* Ultra-compact Top Control Bar: Month Chips + Sync Status + Icons */}
-        <div className="flex items-center justify-between gap-1.5 mb-3">
+        <div className="flex items-center justify-between gap-1.5 mb-2.5">
           {/* Month Filter Chips */}
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none no-scrollbar flex-1 py-1 text-xs">
             <button
@@ -373,7 +407,7 @@ export function App() {
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-amber-500" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Đang May & Chờ Giao ({orders.filter(o => o.status !== 'DELIVERED').length})
+                    Đang May & Chờ Giao ({activeDashboardOrders.length})
                   </h3>
                 </div>
                 <button
@@ -388,7 +422,7 @@ export function App() {
               </div>
 
               <div className="space-y-2.5">
-                {orders.filter(o => o.status !== 'DELIVERED').slice(0, 3).map(order => (
+                {activeDashboardOrders.slice(0, 3).map(order => (
                   <OrderCard
                     key={order.id}
                     order={order}
@@ -399,7 +433,7 @@ export function App() {
                   />
                 ))}
 
-                {orders.filter(o => o.status !== 'DELIVERED').length === 0 && (
+                {activeDashboardOrders.length === 0 && (
                   <div className="p-5 text-center rounded-2xl ios-glass border border-dashed border-slate-300">
                     <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1" />
                     <p className="text-xs font-bold text-slate-700">Tất cả hàng đã được bàn giao!</p>
@@ -430,7 +464,7 @@ export function App() {
               </div>
 
               <div className="space-y-2.5">
-                {orders.filter(o => o.status === 'DELIVERED').slice(0, 2).map(order => (
+                {recentDeliveredDashboardOrders.slice(0, 2).map(order => (
                   <OrderCard
                     key={order.id}
                     order={order}
@@ -448,16 +482,30 @@ export function App() {
         {/* TAB 2: SỔ CÔNG ĐOẠN (ORDERS LIST) */}
         {currentTab === 'orders' && (
           <div className="space-y-2.5 animate-in fade-in duration-200">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="Tìm công đoạn, ghi chú, mã hàng..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white/80 border border-slate-200/80 text-xs font-medium text-slate-800 shadow-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+            {/* Search Input & Sort Toggle Row */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  placeholder="Tìm công đoạn, ghi chú, mã hàng..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-white/80 border border-slate-200/80 text-xs font-medium text-slate-800 shadow-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              {/* Sort Order Button */}
+              <button
+                onClick={handleToggleSort}
+                title={sortOrder === 'desc' ? 'Đang xếp: Mới nhất trước (Bấm để đảo)' : 'Đang xếp: Cũ nhất trước (Bấm để đảo)'}
+                className="px-2.5 py-2.5 rounded-2xl bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 shadow-sm active:scale-95 transition-all flex items-center gap-1 shrink-0 text-xs font-bold"
+              >
+                <ArrowDownUp className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="text-[11px]">
+                  {sortOrder === 'desc' ? 'Mới nhất' : 'Cũ nhất'}
+                </span>
+              </button>
             </div>
 
             {/* Segmented Filter Pills */}
