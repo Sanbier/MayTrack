@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS: WorkshopSettings = {
   ownerName: 'Sanbier',
   phone: '',
   noteTemplate: 'May kỹ đường chỉ, ủi phẳng trước khi giao',
+  payCycleClosingDay: 3,
 };
 
 const STORAGE_KEYS = {

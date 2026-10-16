@@ -159,3 +159,110 @@ export function getDeliveryUrgency(deliveryDate?: string | null, status?: string
     cardBorderClass: '',
   };
 }
+
+// ==========================================
+// CHU KỲ CHỐT CÔNG LÃNH TIỀN (NGÀY MÙNG 3 HÀNG THÁNG)
+// ==========================================
+
+export interface PayrollPeriodInfo {
+  monthStr: string; // '2026-10'
+  year: number; // 2026
+  month: number; // 10
+  closingDay: number; // 3
+  startDate: string; // '2026-10-04'
+  endDate: string; // '2026-11-03'
+  label: string; // 'Tháng 10/2026'
+  rangeText: string; // '04/10/2026 → 03/11/2026'
+  shortRangeText: string; // '04/10 → 03/11'
+  closingDateFormatted: string; // '03/11/2026'
+  closingDayFormatted: string; // 'Thứ ...'
+  isCurrentPeriod: boolean;
+}
+
+/**
+ * Lấy chu kỳ công hiện tại dựa trên ngày chốt công (mặc định mùng 3)
+ * - Nếu hôm nay là ngày 1, 2, 3: Vẫn thuộc kỳ của tháng trước (kỳ kết thúc ngày 3 tháng này)
+ * - Nếu hôm nay từ ngày 4 trở đi: Thuộc kỳ của tháng này (kết thúc ngày 3 tháng sau)
+ */
+export function getCurrentPayrollMonth(closingDay: number = 3): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1; // 1-12
+  const date = d.getDate();
+
+  if (date <= closingDay) {
+    let prevM = month - 1;
+    let prevY = year;
+    if (prevM < 1) {
+      prevM = 12;
+      prevY -= 1;
+    }
+    return prevY + '-' + String(prevM).padStart(2, '0');
+  }
+
+  return year + '-' + String(month).padStart(2, '0');
+}
+
+/**
+ * Tính toán toàn bộ thông tin chu kỳ công cho một tháng (YYYY-MM)
+ * Ví dụ '2026-10', closingDay=3:
+ * - Bắt đầu: 04/10/2026
+ * - Kết thúc (chốt công): 03/11/2026
+ */
+export function getPayrollPeriodInfo(monthStr: string, closingDay: number = 3): PayrollPeriodInfo | null {
+  if (!monthStr || monthStr === 'ALL') return null;
+  const parts = monthStr.split('-');
+  if (parts.length !== 2) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(y) || isNaN(m)) return null;
+
+  const startDay = closingDay + 1;
+  const startDate = y + '-' + String(m).padStart(2, '0') + '-' + String(startDay).padStart(2, '0');
+
+  let nextM = m + 1;
+  let nextY = y;
+  if (nextM > 12) {
+    nextM = 1;
+    nextY += 1;
+  }
+  const endDate = nextY + '-' + String(nextM).padStart(2, '0') + '-' + String(closingDay).padStart(2, '0');
+
+  const currentPayMonth = getCurrentPayrollMonth(closingDay);
+
+  return {
+    monthStr,
+    year: y,
+    month: m,
+    closingDay,
+    startDate,
+    endDate,
+    label: 'Tháng ' + m + '/' + y,
+    rangeText: formatDateVN(startDate) + ' → ' + formatDateVN(endDate),
+    shortRangeText: String(startDay).padStart(2, '0') + '/' + String(m).padStart(2, '0') + ' → ' + String(closingDay).padStart(2, '0') + '/' + String(nextM).padStart(2, '0'),
+    closingDateFormatted: formatDateVN(endDate),
+    closingDayFormatted: getDayOfWeekVN(endDate),
+    isCurrentPeriod: monthStr === currentPayMonth,
+  };
+}
+
+/**
+ * Kiểm tra xem một đơn hàng có thuộc kỳ công đã chọn hay không
+ * - Nếu đơn ĐÃ GIAO: tính theo ngày giao (hoàn thành nhận tiền trong kỳ chốt mùng 3)
+ * - Nếu đơn ĐÃ NHẬN: tính theo ngày nhận hàng hoặc ngày hẹn giao trong kỳ
+ */
+export function isOrderInPayrollPeriod(
+  order: { receiveDate: string; deliveryDate?: string | null; status: string },
+  period: PayrollPeriodInfo
+): boolean {
+  if (order.status === 'DELIVERED') {
+    const targetDate = order.deliveryDate || order.receiveDate;
+    return targetDate >= period.startDate && targetDate <= period.endDate;
+  }
+
+  const inReceive = order.receiveDate >= period.startDate && order.receiveDate <= period.endDate;
+  const inDelivery = order.deliveryDate
+    ? (order.deliveryDate >= period.startDate && order.deliveryDate <= period.endDate)
+    : false;
+  return inReceive || inDelivery;
+}

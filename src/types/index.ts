@@ -39,6 +39,7 @@ export interface WorkshopSettings {
   ownerName: string;
   phone?: string;
   noteTemplate?: string;
+  payCycleClosingDay?: number; // Mặc định: 3 (ngày mùng 3 hàng tháng chốt công lãnh tiền)
 }
 
 export type TabType = 'dashboard' | 'orders' | 'reports' | 'presets';

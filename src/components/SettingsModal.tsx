@@ -8,7 +8,7 @@ import {
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { 
   X, Save, Home, User, Phone, Check, Cloud, 
-  CloudLightning, RefreshCw, AlertCircle, ExternalLink, ShieldCheck 
+  CloudLightning, RefreshCw, AlertCircle, ExternalLink, ShieldCheck, Calendar 
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -301,6 +301,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onChange={e => setForm({ ...form, phone: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
               />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                  Ngày chốt công lãnh tiền hàng tháng
+                </span>
+                <span className="text-[10px] text-indigo-600 font-bold">Mặc định: Mùng 3</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="28"
+                  required
+                  value={form.payCycleClosingDay ?? 3}
+                  onChange={e => setForm({ ...form, payCycleClosingDay: Math.max(1, Math.min(28, parseInt(e.target.value, 10) || 3)) })}
+                  className="w-24 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-center font-mono"
+                />
+                <span className="text-xs text-slate-700 font-semibold">
+                  Hàng tháng (chốt ngày {form.payCycleClosingDay ?? 3})
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Chu kỳ công sẽ tính từ ngày {(form.payCycleClosingDay ?? 3) + 1} tháng này đến ngày {form.payCycleClosingDay ?? 3} tháng sau để chốt lương lãnh tiền.
+              </p>
             </div>
 
             <div className="pt-2 flex gap-2">

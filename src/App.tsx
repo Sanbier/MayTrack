@@ -10,7 +10,7 @@ import {
   getCloudUrl, fetchFromCloud, pushToCloud, 
   subscribeToCloudUpdates, CloudPayload 
 } from './utils/cloudSync';
-import { formatVND, formatNumber, formatKg, formatDateVN, getDeliveryUrgency } from './utils/format';
+import { formatVND, formatNumber, formatKg, formatDateVN, getDeliveryUrgency, getCurrentPayrollMonth, getPayrollPeriodInfo, isOrderInPayrollPeriod, PayrollPeriodInfo } from './utils/format';
 
 import { StatCards } from './components/StatCard';
 import { OrderCard } from './components/OrderCard';
@@ -21,10 +21,11 @@ import { PresetsModal } from './components/PresetsModal';
 import { ExportModal } from './components/ExportModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MonthDaysModal } from './components/MonthDaysModal';
+import { PayrollClosingModal } from './components/PayrollClosingModal';
 import { BottomTabBar } from './components/BottomTabBar';
 
 import { 
-  Search, Plus, CheckCircle2, Clock, 
+  Search, Plus, CheckCircle2, Clock, Banknote, 
   TrendingUp, Scissors, ChevronRight, ChevronLeft, FileSpreadsheet, Settings, 
   Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar, Package, Layers, AlertTriangle
 } from 'lucide-react';
@@ -71,9 +72,14 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'RECEIVED' | 'IN_PROGRESS' | 'PENDING' | 'DELIVERED'>('RECEIVED');
   
   // Selected month: e.g. '2026-10' or 'ALL'
+  const closingDay = settings.payCycleClosingDay || 3;
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    return getCurrentMonthString();
+    return getCurrentPayrollMonth(3);
   });
+  const [isPayrollModalOpen, setIsPayrollModalOpen] = useState(false);
+  const periodInfo = useMemo(() => {
+    return getPayrollPeriodInfo(selectedMonth, closingDay);
+  }, [selectedMonth, closingDay]);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // Swipe gesture detection
@@ -128,14 +134,12 @@ export function App() {
       if (selectedDate) {
         return o.receiveDate === selectedDate || o.deliveryDate === selectedDate;
       }
-      if (selectedMonth !== 'ALL') {
-        const inReceive = o.receiveDate.startsWith(selectedMonth);
-        const inDelivery = o.deliveryDate ? o.deliveryDate.startsWith(selectedMonth) : false;
-        return inReceive || inDelivery;
+      if (selectedMonth !== 'ALL' && periodInfo) {
+        return isOrderInPayrollPeriod(o, periodInfo);
       }
       return true;
     });
-  }, [orders, selectedMonth, selectedDate]);
+  }, [orders, selectedMonth, selectedDate, periodInfo]);
 
   const receivedCount = useMemo(() => periodOrders.filter(o => o.status !== 'DELIVERED').length, [periodOrders]);
   const deliveredCount = useMemo(() => periodOrders.filter(o => o.status === 'DELIVERED').length, [periodOrders]);
@@ -442,11 +446,20 @@ export function App() {
 
             <button
               onClick={() => setIsMonthPickerOpen(true)}
-              className="px-2 py-1 text-xs font-bold text-slate-800 hover:text-indigo-600 flex items-center gap-1 active:scale-95 transition-all"
-              title="Bấm để chọn tháng"
+              className="px-2 py-0.5 text-xs font-bold text-slate-800 hover:text-indigo-600 flex items-center gap-1.5 active:scale-95 transition-all"
+              title="Bấm để chọn tháng & ngày"
             >
-              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-              <span>{selectedDate ? `Ngày ${formatDateVN(selectedDate)}` : formatMonthLabel(selectedMonth)}</span>
+              <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              {selectedDate ? (
+                <span>Ngày {formatDateVN(selectedDate)}</span>
+              ) : periodInfo ? (
+                <div className="text-left leading-tight">
+                  <span className="font-extrabold block text-xs">{periodInfo.label}</span>
+                  <span className="text-[10px] text-indigo-600 font-bold block">{periodInfo.shortRangeText}</span>
+                </div>
+              ) : (
+                <span>Toàn bộ</span>
+              )}
             </button>
 
             <button
@@ -517,6 +530,38 @@ export function App() {
         {/* TAB 1: DASHBOARD (TỔNG QUAN) */}
         {currentTab === 'dashboard' && (
           <div className="space-y-3 animate-in fade-in duration-200">
+
+            {/* BANNER CHU KỲ CHỐT CÔNG LÃNH TIỀN NGÀY MÙNG 3 */}
+            {periodInfo && (
+              <div className="p-3 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/20 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 rounded-2xl bg-white/20 backdrop-blur-md shrink-0">
+                    <Banknote className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black tracking-wide truncate">
+                        Kỳ {periodInfo.label} ({periodInfo.shortRangeText})
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-md bg-white/25 text-white text-[9px] font-black uppercase shrink-0">
+                        Chốt mùng {closingDay}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-emerald-100 truncate">
+                      Chốt công lãnh tiền: <strong className="text-white">{periodInfo.closingDateFormatted}</strong> ({periodInfo.closingDayFormatted})
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPayrollModalOpen(true)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white text-emerald-800 text-[11px] font-black shadow-xs active:scale-95 transition-all shrink-0 flex items-center gap-1"
+                >
+                  <span>Bảng Chốt</span>
+                </button>
+              </div>
+            )}
 
             {/* BÁO ĐỘNG HẠN GIAO: Còn 1 ngày / Hôm nay / Quá hạn */}
             {urgentOrders.length > 0 && (
@@ -842,8 +887,20 @@ export function App() {
                   {formatMonthLabel(selectedMonth)}
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-emerald-400">
-                {formatVND(stats.totalDeliveredAmount)}
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-black font-mono text-emerald-400">
+                  {formatVND(stats.totalDeliveredAmount)}
+                </div>
+                {periodInfo && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPayrollModalOpen(true)}
+                    className="px-2.5 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0"
+                  >
+                    <Banknote className="w-3.5 h-3.5" />
+                    <span>Bảng Chốt Công</span>
+                  </button>
+                )}
               </div>
               <div className="mt-2.5 pt-2.5 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
                 <div>
@@ -978,10 +1035,19 @@ export function App() {
         selectedMonth={selectedMonth}
         selectedDate={selectedDate}
         orders={orders}
+        closingDay={closingDay}
         onSelectDate={setSelectedDate}
         onSelectMonth={m => {
           setSelectedMonth(m);
         }}
+      />
+
+      <PayrollClosingModal
+        isOpen={isPayrollModalOpen}
+        onClose={() => setIsPayrollModalOpen(false)}
+        periodInfo={periodInfo}
+        orders={orders}
+        settings={settings}
       />
 
       <OrderModal

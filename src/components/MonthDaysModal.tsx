@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SewingOrder } from '../types';
-import { getTodayString, formatDateVN } from '../utils/format';
+import { getTodayString, formatDateVN, getPayrollPeriodInfo } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -10,6 +10,7 @@ interface MonthDaysModalProps {
   selectedMonth: string; // 'YYYY-MM' or 'ALL'
   selectedDate: string | null; // 'YYYY-MM-DD' or null
   orders: SewingOrder[];
+  closingDay?: number;
   onSelectDate: (dateStr: string | null) => void;
   onSelectMonth: (monthStr: string) => void;
 }
@@ -20,6 +21,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
   selectedMonth,
   selectedDate,
   orders,
+  closingDay = 3,
   onSelectDate,
   onSelectMonth,
 }) => {
@@ -52,6 +54,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
   };
 
   const currentMonthStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}`;
+  const periodInfo = getPayrollPeriodInfo(currentMonthStr, closingDay);
 
   // Calendar calculations
   const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
@@ -232,7 +235,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
             }`}
           >
-            Xem cả Tháng {viewMonth}/{viewYear}
+            Xem Kỳ Tháng {viewMonth}/{viewYear} {periodInfo ? `(${periodInfo.shortRangeText})` : ''}
           </button>
 
           <button
