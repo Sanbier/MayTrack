@@ -33,6 +33,7 @@ ${order.deliveryDate ? `🚀 Ngày giao: ${formatDateVN(order.deliveryDate)} (${
 💰 Đơn giá: ${formatVND(order.unitPrice)}/cái
 📦 Số lượng: ${formatNumber(totalQty)} cái
 ⚖️ Kí vải: ${formatKg(order.deliveryFabricKg || order.receiveFabricKg)}
+🏷️ Trạng thái: ${isDelivered ? 'ĐÃ GIAO' : (order.status === 'IN_PROGRESS' ? 'ĐÃ NHẬN (ĐANG LÀM)' : 'ĐÃ NHẬN (CHỜ LÀM)')}
 ━━━━━━━━━━━━━━━━━━━━
 💵 TỔNG TIỀN CÔNG: ${formatVND(order.totalAmount)}
 ${order.note ? `📝 Ghi chú: ${order.note}` : ''}
@@ -95,8 +96,8 @@ MayTrack Pro - Quản lý công đoạn may`;
             )}
             <div className="flex justify-between">
               <span className="text-slate-400">Trạng thái:</span>
-              <span className="font-bold text-emerald-600">
-                {isDelivered ? 'ĐÃ HOÀN THÀNH' : 'ĐANG THỰC HIỆN'}
+              <span className={`font-bold ${isDelivered ? 'text-emerald-600' : (order.status === 'IN_PROGRESS' ? 'text-amber-600' : 'text-blue-600')}`}>
+                {isDelivered ? 'ĐÃ GIAO' : (order.status === 'IN_PROGRESS' ? 'ĐÃ NHẬN (ĐANG LÀM)' : 'ĐÃ NHẬN (CHỜ LÀM)')}
               </span>
             </div>
           </div>

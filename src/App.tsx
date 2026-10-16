@@ -68,7 +68,7 @@ export function App() {
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | OrderStatus>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'RECEIVED' | 'IN_PROGRESS' | 'PENDING' | 'DELIVERED'>('ALL');
   
   // Selected month: e.g. '2026-10' or 'ALL'
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -121,6 +121,11 @@ export function App() {
   const [isPresetsOpen, setPresetsOpen] = useState(false);
   const [isExportOpen, setExportOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+
+  const receivedCount = useMemo(() => orders.filter(o => o.status !== 'DELIVERED').length, [orders]);
+  const deliveredCount = useMemo(() => orders.filter(o => o.status === 'DELIVERED').length, [orders]);
+  const inProgressCount = useMemo(() => orders.filter(o => o.status === 'IN_PROGRESS').length, [orders]);
+  const pendingCount = useMemo(() => orders.filter(o => o.status === 'PENDING').length, [orders]);
 
   // Handle month stepper
   const handlePrevMonth = () => {
@@ -256,7 +261,9 @@ export function App() {
         const matchNote = o.note ? o.note.toLowerCase().includes(q) : false;
         if (!matchName && !matchNote) return false;
       }
-      if (statusFilter !== 'ALL' && o.status !== statusFilter) {
+      if (statusFilter === 'RECEIVED') {
+        if (o.status === 'DELIVERED') return false;
+      } else if (statusFilter !== 'ALL' && o.status !== statusFilter) {
         return false;
       }
       if (selectedDate) {
@@ -532,12 +539,12 @@ export function App() {
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-amber-500" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Đang May & Chờ Giao ({activeDashboardOrders.length})
+                    Công Đoạn Đã Nhận ({activeDashboardOrders.length})
                   </h3>
                 </div>
                 <button
                   onClick={() => {
-                    setStatusFilter('IN_PROGRESS');
+                    setStatusFilter('RECEIVED');
                     setCurrentTab('orders');
                   }}
                   className="text-xs font-semibold text-indigo-600 flex items-center"
@@ -562,7 +569,7 @@ export function App() {
                   <div className="p-5 text-center rounded-2xl ios-glass border border-dashed border-slate-300">
                     <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1" />
                     <p className="text-xs font-bold text-slate-700">Tất cả hàng đã được bàn giao!</p>
-                    <p className="text-[11px] text-slate-400">Không còn công đoạn nào đang chờ may</p>
+                    <p className="text-[11px] text-slate-400">Không còn công đoạn đã nhận nào chưa giao</p>
                   </div>
                 )}
               </div>
@@ -574,7 +581,7 @@ export function App() {
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Công Đoạn Vừa Giao Gần Đây
+                    Công Đoạn Đã Giao Gần Đây
                   </h3>
                 </div>
                 <button
@@ -634,48 +641,81 @@ export function App() {
               </button>
             </div>
 
-            {/* Segmented Filter Pills */}
-            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/70 rounded-2xl text-[11px] font-bold">
-              <button
-                onClick={() => setStatusFilter('ALL')}
-                className={`py-1.5 rounded-xl transition-all ${
-                  statusFilter === 'ALL'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Tất cả ({orders.length})
-              </button>
-              <button
-                onClick={() => setStatusFilter('IN_PROGRESS')}
-                className={`py-1.5 rounded-xl transition-all ${
-                  statusFilter === 'IN_PROGRESS'
-                    ? 'bg-amber-500 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Đang may
-              </button>
-              <button
-                onClick={() => setStatusFilter('PENDING')}
-                className={`py-1.5 rounded-xl transition-all ${
-                  statusFilter === 'PENDING'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Chờ may
-              </button>
-              <button
-                onClick={() => setStatusFilter('DELIVERED')}
-                className={`py-1.5 rounded-xl transition-all ${
-                  statusFilter === 'DELIVERED'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Đã giao
-              </button>
+            {/* 2 Trạng Thái Chính: ĐÃ NHẬN vs ĐÃ GIAO */}
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/70 rounded-2xl text-xs font-bold">
+                <button
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`py-1.5 rounded-xl transition-all ${
+                    statusFilter === 'ALL'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Tất cả ({orders.length})
+                </button>
+                <button
+                  onClick={() => setStatusFilter('RECEIVED')}
+                  className={`py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 ${
+                    statusFilter === 'RECEIVED' || statusFilter === 'IN_PROGRESS' || statusFilter === 'PENDING'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>1. Đã Nhận</span>
+                  <span className="text-[10px] opacity-80 font-mono">({receivedCount})</span>
+                </button>
+                <button
+                  onClick={() => setStatusFilter('DELIVERED')}
+                  className={`py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 ${
+                    statusFilter === 'DELIVERED'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>2. Đã Giao</span>
+                  <span className="text-[10px] opacity-80 font-mono">({deliveredCount})</span>
+                </button>
+              </div>
+
+              {/* Nếu chọn nhóm [ ĐÃ NHẬN ] -> Hiển thị 2 trường hợp: [ Đang Làm ] và [ Chờ Làm ] */}
+              {(statusFilter === 'RECEIVED' || statusFilter === 'IN_PROGRESS' || statusFilter === 'PENDING') && (
+                <div className="flex items-center gap-1 px-1.5 py-1 bg-indigo-50/90 rounded-xl border border-indigo-100 text-[11px] font-bold animate-in fade-in duration-200">
+                  <span className="text-[10px] text-indigo-900/70 pl-1 uppercase tracking-wide shrink-0">Lọc:</span>
+                  <button
+                    onClick={() => setStatusFilter('RECEIVED')}
+                    className={`px-2 py-0.5 rounded-lg transition-all ${
+                      statusFilter === 'RECEIVED'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    Tất cả ({receivedCount})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('IN_PROGRESS')}
+                    className={`px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
+                      statusFilter === 'IN_PROGRESS'
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Đang làm ({inProgressCount})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('PENDING')}
+                    className={`px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
+                      statusFilter === 'PENDING'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    Chờ làm ({pendingCount})
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* List of Orders */}

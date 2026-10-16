@@ -214,7 +214,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
           </span>
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            Đang may
+            Đã nhận (Đang làm)
           </span>
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full border border-indigo-500 bg-indigo-100" />

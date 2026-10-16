@@ -1,5 +1,5 @@
 import React from 'react';
-import { Banknote, PackageCheck, Clock, Scale } from 'lucide-react';
+import { Banknote, PackageCheck, Package, Scale } from 'lucide-react';
 import { formatVND, formatNumber, formatKg } from '../utils/format';
 
 interface StatCardsProps {
@@ -19,7 +19,7 @@ export const StatCards: React.FC<StatCardsProps> = ({
 }) => {
   return (
     <div className="grid grid-cols-2 gap-3 mb-5">
-      {/* Card 1: Tổng tiền công đã nhận / hoàn thành */}
+      {/* Card 1: Tổng tiền công đã giao (Thực nhận) vs Dự kiến đã nhận */}
       <div className="col-span-2 relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-700 text-white shadow-xl shadow-indigo-600/20 ring-1 ring-white/20">
         <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
         <div className="flex items-center justify-between mb-2">
@@ -41,7 +41,7 @@ export const StatCards: React.FC<StatCardsProps> = ({
             {formatVND(totalDeliveredAmount)}
           </div>
           <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-indigo-200">
-            <span>Dự kiến chờ giao:</span>
+            <span>Dự kiến hàng đã nhận:</span>
             <span className="font-semibold text-white font-mono">
               +{formatVND(totalPendingAmount)}
             </span>
@@ -49,7 +49,7 @@ export const StatCards: React.FC<StatCardsProps> = ({
         </div>
       </div>
 
-      {/* Card 2: Số lượng hoàn thành vs chờ giao */}
+      {/* Card 2: Số lượng Đã Giao vs Đã Nhận */}
       <div className="rounded-2xl p-4 ios-glass border border-white/70 shadow-ios-card">
         <div className="flex items-center gap-2 mb-2">
           <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
@@ -64,8 +64,8 @@ export const StatCards: React.FC<StatCardsProps> = ({
           <span className="text-xs font-medium text-slate-400 ml-1">cái</span>
         </div>
         <div className="text-[11px] text-amber-600 font-medium mt-1 flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          Đang may: {formatNumber(totalPendingQty)} cái
+          <Package className="w-3 h-3 text-amber-500" />
+          Đã nhận: {formatNumber(totalPendingQty)} cái
         </div>
       </div>
 

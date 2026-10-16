@@ -123,7 +123,7 @@ export function exportToCSV(orders: SewingOrder[]): void {
     const price = o.unitPrice;
     const rQty = o.receiveQuantity;
     const rKg = o.receiveFabricKg ?? '';
-    const statusText = o.status === 'DELIVERED' ? 'ĐÃ GIAO' : (o.status === 'IN_PROGRESS' ? 'ĐANG MAY' : 'CHỜ MAY');
+    const statusText = o.status === 'DELIVERED' ? 'ĐÃ GIAO' : (o.status === 'IN_PROGRESS' ? 'ĐÃ NHẬN (ĐANG LÀM)' : 'ĐÃ NHẬN (CHỜ LÀM)');
 
     const dDate = o.deliveryDate ? formatDateVN(o.deliveryDate) : '';
     const dDay = o.deliveryDayOfWeek ?? '';

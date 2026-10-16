@@ -1,9 +1,12 @@
+// 2 Trạng thái chính: ĐÃ NHẬN (gồm Đang Làm & Chờ Làm) và ĐÃ GIAO
 export type OrderStatus = 'PENDING' | 'IN_PROGRESS' | 'DELIVERED';
+export type MainOrderStatus = 'RECEIVED' | 'DELIVERED';
+export type SubReceivedStatus = 'IN_PROGRESS' | 'PENDING';
 
 export interface SewingOrder {
   id: string;
   // CÔNG ĐOẠN NHẬN
-  receiveDate: string; // YYYY-MM-DD
+  receiveDate: string; // YYYY-MM-DD (Định dạng ngày/tháng/năm)
   receiveDayOfWeek: string; // Thứ 2 ... CN
   stageName: string; // Tên công đoạn
   unitPrice: number; // Đơn giá (VNĐ)

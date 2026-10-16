@@ -77,7 +77,7 @@ export const QuickDeliverModal: React.FC<QuickDeliverModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-800">Xác Nhận Giao Hàng</h3>
-              <p className="text-[10px] text-slate-500">Hoàn thành công đoạn & ghi nhận tiền</p>
+              <p className="text-[10px] text-slate-500">Chuyển sang ĐÃ GIAO & ghi nhận tiền công</p>
             </div>
           </div>
           <button
@@ -194,7 +194,7 @@ export const QuickDeliverModal: React.FC<QuickDeliverModalProps> = ({
             className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 active:scale-98 transition-all flex items-center justify-center gap-1.5"
           >
             <CheckCircle2 className="w-4 h-4" />
-            Xác Nhận & Lưu
+            Xác Nhận ĐÃ GIAO & Lưu
           </button>
         </div>
       </div>
