@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SewingOrder, StagePreset, OrderStatus } from '../types';
 import { getTodayString, getDayOfWeekVN, formatVND, formatNumber } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
+import { DateInputVN } from './DateInputVN';
 import { X, Check, Calendar, Layers, Package, Scale, FileText } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -226,26 +227,26 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Row 2: Ngày Nhận (7 cols) + Thứ Trong Tuần (5 cols) */}
+          {/* Row 2: Ngày Nhận Hàng (Định dạng Ngày/Tháng/Năm) + Thứ Trong Tuần */}
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-7">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-indigo-500" />
-                Ngày nhận hàng
+                Ngày nhận hàng <span className="text-[9px] font-normal text-slate-400">(ngày/tháng/năm)</span>
               </label>
-              <input
-                type="date"
-                required
+              <DateInputVN
                 value={receiveDate}
-                onChange={e => setReceiveDate(e.target.value)}
-                className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                onChange={setReceiveDate}
+                required
+                theme="indigo"
+                showQuickButtons={true}
               />
             </div>
             <div className="col-span-5">
               <label className="text-[11px] font-bold text-slate-700 mb-1 block">
                 Thứ trong tuần
               </label>
-              <div className="px-2.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
+              <div className="h-[38px] px-2.5 flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
                 {receiveDay || '-'}
               </div>
             </div>
@@ -355,21 +356,21 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-7">
                   <label className="text-[10px] font-semibold text-emerald-900 mb-0.5 block">
-                    Ngày giao hàng
+                    Ngày giao hàng <span className="text-[9px] font-normal text-emerald-700/70">(ngày/tháng/năm)</span>
                   </label>
-                  <input
-                    type="date"
-                    required
+                  <DateInputVN
                     value={deliveryDate}
-                    onChange={e => setDeliveryDate(e.target.value)}
-                    className="w-full px-2 py-1.5 rounded-lg bg-white border border-emerald-300 text-xs font-medium text-slate-800 outline-none"
+                    onChange={setDeliveryDate}
+                    required
+                    theme="emerald"
+                    showQuickButtons={true}
                   />
                 </div>
                 <div className="col-span-5">
                   <label className="text-[10px] font-semibold text-emerald-900 mb-0.5 block">
                     Thứ giao
                   </label>
-                  <div className="px-2 py-1.5 rounded-lg bg-emerald-100/60 border border-emerald-200 text-xs font-bold text-emerald-900 text-center">
+                  <div className="h-[38px] px-2.5 flex items-center justify-center rounded-lg bg-emerald-100/60 border border-emerald-200 text-xs font-bold text-emerald-900 text-center">
                     {deliveryDay || '-'}
                   </div>
                 </div>

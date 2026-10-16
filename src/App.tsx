@@ -315,7 +315,7 @@ export function App() {
       totalPendingQty,
       totalFabricKg,
     };
-  }, [orders, selectedMonth]);
+  }, [orders, selectedMonth, selectedDate]);
 
   // Breakdown by stage name
   const stageBreakdown = useMemo(() => {
@@ -445,7 +445,7 @@ export function App() {
               title="Bấm để chọn tháng"
             >
               <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-              <span>{selectedDate ? formatDateVN(selectedDate) : formatMonthLabel(selectedMonth)}</span>
+              <span>{selectedDate ? `Ngày ${formatDateVN(selectedDate)}` : formatMonthLabel(selectedMonth)}</span>
             </button>
 
             <button

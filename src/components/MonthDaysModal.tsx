@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SewingOrder } from '../types';
+import { getTodayString, formatDateVN } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -59,7 +60,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
   const startOffset = firstDay === 0 ? 6 : firstDay - 1;
 
   // Today string YYYY-MM-DD
-  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayStr = getTodayString();
 
   // Map orders by date in this month
   const ordersByDate: { [dateStr: string]: { count: number; deliveredCount: number; amount: number } } = {};
@@ -217,7 +218,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
           </span>
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full border border-indigo-500 bg-indigo-100" />
-            Hôm nay
+            Hôm nay ({formatDateVN(todayStr)})
           </span>
         </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SewingOrder } from '../types';
 import { getTodayString, getDayOfWeekVN, formatVND, formatNumber } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
+import { DateInputVN } from './DateInputVN';
 import { CheckCircle2, X, Calendar, PackageCheck, Scale } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -113,21 +114,21 @@ export const QuickDeliverModal: React.FC<QuickDeliverModalProps> = ({
             <div className="col-span-7">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-indigo-500" />
-                Ngày giao
+                Ngày giao hàng <span className="text-[9px] font-normal text-slate-400">(ngày/tháng/năm)</span>
               </label>
-              <input
-                type="date"
-                required
+              <DateInputVN
                 value={deliveryDate}
-                onChange={e => setDeliveryDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                onChange={setDeliveryDate}
+                required
+                theme="emerald"
+                showQuickButtons={true}
               />
             </div>
             <div className="col-span-5">
               <label className="text-[11px] font-bold text-slate-700 mb-1 block">
                 Thứ
               </label>
-              <div className="px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
+              <div className="h-[38px] px-2.5 flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
                 {dayOfWeek}
               </div>
             </div>
