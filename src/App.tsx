@@ -591,17 +591,17 @@ export function App() {
                   <div className="mt-2 pt-2 border-t border-indigo-100/80 space-y-0.5 text-[10px] text-slate-600">
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                         Đang làm:
                       </span>
-                      <strong className="font-mono text-amber-700">{inProgressCount}</strong>
+                      <strong className="font-mono text-blue-700">{inProgressCount}</strong>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                         Chờ làm:
                       </span>
-                      <strong className="font-mono text-blue-700">{pendingCount}</strong>
+                      <strong className="font-mono text-amber-700">{pendingCount}</strong>
                     </div>
                   </div>
                 </button>
@@ -768,11 +768,11 @@ export function App() {
                     onClick={() => setStatusFilter('IN_PROGRESS')}
                     className={`px-2.5 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
                       statusFilter === 'IN_PROGRESS'
-                        ? 'bg-amber-500 text-white shadow-xs'
+                        ? 'bg-blue-600 text-white shadow-xs'
                         : 'bg-white/80 text-slate-700 hover:bg-white'
                     }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                     Đang làm ({inProgressCount})
                   </button>
 
@@ -780,11 +780,11 @@ export function App() {
                     onClick={() => setStatusFilter('PENDING')}
                     className={`px-2.5 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
                       statusFilter === 'PENDING'
-                        ? 'bg-blue-600 text-white shadow-xs'
+                        ? 'bg-amber-500 text-white shadow-xs'
                         : 'bg-white/80 text-slate-700 hover:bg-white'
                     }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Chờ làm ({pendingCount})
                   </button>
 

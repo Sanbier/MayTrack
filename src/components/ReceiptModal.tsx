@@ -96,7 +96,7 @@ MayTrack Pro - Quản lý công đoạn may`;
             )}
             <div className="flex justify-between">
               <span className="text-slate-400">Trạng thái:</span>
-              <span className={`font-bold ${isDelivered ? 'text-emerald-600' : (order.status === 'IN_PROGRESS' ? 'text-amber-600' : 'text-blue-600')}`}>
+              <span className={`font-bold ${isDelivered ? 'text-emerald-600' : (order.status === 'IN_PROGRESS' ? 'text-blue-600' : 'text-amber-600')}`}>
                 {isDelivered ? 'ĐÃ GIAO' : (order.status === 'IN_PROGRESS' ? 'ĐÃ NHẬN (ĐANG LÀM)' : 'ĐÃ NHẬN (CHỜ LÀM)')}
               </span>
             </div>

@@ -39,8 +39,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     : urgency.level === 'tomorrow'
     ? 'border-l-4 border-l-amber-500 ring-2 ring-amber-400/80 bg-amber-50/20'
     : isInProgress 
-    ? 'border-l-4 border-l-amber-500 border-slate-200/90' 
-    : 'border-l-4 border-l-blue-500 border-slate-200/90';
+    ? 'border-l-4 border-l-blue-500 border-slate-200/90' 
+    : 'border-l-4 border-l-amber-500 border-slate-200/90';
 
   return (
     <div className={`relative overflow-hidden rounded-2xl p-3 bg-white border transition-all duration-150 shadow-xs hover:shadow-sm ${baseBorder}`}>
@@ -58,13 +58,13 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               ĐÃ GIAO
             </span>
           ) : isInProgress ? (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 text-amber-900 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-100 text-blue-900 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
               ĐÃ NHẬN • ĐANG LÀM
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-100 text-blue-900 shrink-0">
-              <Clock className="w-2.5 h-2.5 text-blue-600" />
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 text-amber-900 shrink-0">
+              <Clock className="w-2.5 h-2.5 text-amber-600" />
               ĐÃ NHẬN • CHỜ LÀM
             </span>
           )}
@@ -178,13 +178,13 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 </span>
               </span>
             ) : isInProgress ? (
-              <span className="flex items-center gap-1 text-amber-700 font-semibold truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <span className="flex items-center gap-1 text-blue-700 font-semibold truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
                 Đang may gia công
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-blue-700 font-semibold truncate">
-                <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span className="flex items-center gap-1 text-amber-700 font-semibold truncate">
+                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 Chờ may gia công
               </span>
             )}

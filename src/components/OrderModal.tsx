@@ -419,11 +419,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 onClick={() => setStatus('IN_PROGRESS')}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 border active:scale-95 ${
                   status === 'IN_PROGRESS'
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25 ring-2 ring-amber-200'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-2 ring-blue-200'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${status === 'IN_PROGRESS' ? 'bg-white' : 'bg-amber-500'}`} />
+                <span className={`w-2 h-2 rounded-full ${status === 'IN_PROGRESS' ? 'bg-white' : 'bg-blue-500'}`} />
                 <span>Đang Làm</span>
               </button>
 
@@ -432,11 +432,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 onClick={() => setStatus('PENDING')}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 border active:scale-95 ${
                   status === 'PENDING'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-2 ring-blue-200'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25 ring-2 ring-amber-200'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                <Clock className={`w-3.5 h-3.5 ${status === 'PENDING' ? 'text-white' : 'text-blue-500'}`} />
+                <Clock className={`w-3.5 h-3.5 ${status === 'PENDING' ? 'text-white' : 'text-amber-500'}`} />
                 <span>Chờ Làm</span>
               </button>
 
@@ -507,8 +507,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 isDelivered
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
                   : status === 'IN_PROGRESS'
-                  ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/30'
-                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30'
+                  ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30'
+                  : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/30'
               }`}
             >
               <Check className="w-4 h-4" />
