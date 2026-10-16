@@ -238,9 +238,18 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Row 2: Ngày Nhận Hàng + Thứ Trong Tuần */}
+          {/* Row 2: Thứ trong tuần (Bên Trái) + Ngày Nhận Hàng (Bên Phải) */}
           <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-7">
+            <div className="col-span-4">
+              <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                Thứ
+              </label>
+              <div className="h-[38px] px-2.5 flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
+                {receiveDay || '-'}
+              </div>
+            </div>
+
+            <div className="col-span-8">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-indigo-500" />
                 Ngày nhận hàng
@@ -250,22 +259,26 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 onChange={setReceiveDate}
                 required
                 theme="indigo"
-                showQuickButtons={true}
               />
-            </div>
-            <div className="col-span-5">
-              <label className="text-[11px] font-bold text-slate-700 mb-1 block">
-                Thứ trong tuần
-              </label>
-              <div className="h-[38px] px-2.5 flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
-                {receiveDay || '-'}
-              </div>
             </div>
           </div>
 
-          {/* Row 3: Hạng Mục Ngày Giao Hàng (Thêm ngay trong phần Ngày) */}
+          {/* Row 3: Thứ giao (Bên Trái) + Ngày Giao Hàng (Bên Phải) */}
           <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-7">
+            <div className="col-span-4">
+              <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                Thứ giao
+              </label>
+              <div className={`h-[38px] px-2.5 flex items-center justify-center rounded-xl border text-xs font-bold text-center ${
+                deliveryDate 
+                  ? 'bg-emerald-100/70 border-emerald-300 text-emerald-900 font-extrabold' 
+                  : 'bg-slate-100 border-slate-200 text-slate-400'
+              }`}>
+                {deliveryDate ? (deliveryDay || '-') : 'Chưa giao'}
+              </div>
+            </div>
+
+            <div className="col-span-8">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
                   <Send className="w-3.5 h-3.5 text-emerald-600" />
@@ -287,7 +300,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   value={deliveryDate}
                   onChange={setDeliveryDate}
                   theme="emerald"
-                  showQuickButtons={true}
                 />
               ) : (
                 <button
@@ -299,19 +311,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   <span>+ Điền ngày giao hàng</span>
                 </button>
               )}
-            </div>
-
-            <div className="col-span-5">
-              <label className="text-[11px] font-bold text-slate-700 mb-1 block">
-                Thứ giao
-              </label>
-              <div className={`h-[38px] px-2.5 flex items-center justify-center rounded-xl border text-xs font-bold text-center ${
-                deliveryDate 
-                  ? 'bg-emerald-100/70 border-emerald-300 text-emerald-900' 
-                  : 'bg-slate-100 border-slate-200 text-slate-400'
-              }`}>
-                {deliveryDate ? (deliveryDay || '-') : 'Chưa giao'}
-              </div>
             </div>
           </div>
 
