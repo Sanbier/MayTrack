@@ -596,7 +596,7 @@ export function App() {
               </div>
 
               <div className="space-y-2.5">
-                {recentDeliveredDashboardOrders.slice(0, 2).map(order => (
+                {recentDeliveredDashboardOrders.slice(0, 3).map(order => (
                   <OrderCard
                     key={order.id}
                     order={order}
@@ -606,6 +606,12 @@ export function App() {
                     onShareReceipt={setReceiptOrder}
                   />
                 ))}
+
+                {recentDeliveredDashboardOrders.length === 0 && (
+                  <div className="p-3 text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+                    <p className="text-xs text-slate-400">Chưa có công đoạn nào đã giao</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

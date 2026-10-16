@@ -21,139 +21,138 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   const isDelivered = order.status === 'DELIVERED';
   const isInProgress = order.status === 'IN_PROGRESS';
 
+  const finalQty = isDelivered 
+    ? (order.deliverQuantity || order.receiveQuantity) 
+    : order.receiveQuantity;
+  const finalFabricKg = isDelivered 
+    ? (order.deliveryFabricKg || order.receiveFabricKg) 
+    : order.receiveFabricKg;
+
   return (
-    <div className={`relative overflow-hidden rounded-2xl p-4 transition-all duration-200 ios-glass border ${
+    <div className={`relative overflow-hidden rounded-2xl p-3 bg-white border transition-all duration-150 shadow-xs hover:shadow-sm ${
       isDelivered 
-        ? 'border-emerald-200/80 shadow-ios-card hover:shadow-ios-card-lg' 
-        : 'border-slate-200/80 shadow-ios-card hover:shadow-ios-card-lg ring-1 ring-indigo-500/10'
+        ? 'border-l-4 border-l-emerald-500 border-slate-200/90' 
+        : isInProgress 
+        ? 'border-l-4 border-l-amber-500 border-slate-200/90' 
+        : 'border-l-4 border-l-blue-500 border-slate-200/90'
     }`}>
-      {/* Header: Date + Status Badge */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Nhận:</span>
-          <span className="font-semibold text-slate-700">{formatDateVN(order.receiveDate)}</span>
-          <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-[10px] font-bold text-slate-600">
-            {order.receiveDayOfWeek}
-          </span>
+      {/* Row 1: Công đoạn + Trạng thái + Thành tiền */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <h3 className="text-sm font-extrabold text-slate-900 tracking-tight truncate">
+            {order.stageName}
+          </h3>
+
+          {/* Compact Status Badge */}
+          {isDelivered ? (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-100 text-emerald-800 shrink-0">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              ĐÃ GIAO
+            </span>
+          ) : isInProgress ? (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 text-amber-900 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              ĐÃ NHẬN • ĐANG LÀM
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-100 text-blue-900 shrink-0">
+              <Clock className="w-2.5 h-2.5 text-blue-600" />
+              ĐÃ NHẬN • CHỜ LÀM
+            </span>
+          )}
         </div>
 
-        {/* 2 Trạng thái chính: ĐÃ GIAO và ĐÃ NHẬN (Đang làm / Chờ làm) */}
-        {isDelivered ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            ĐÃ GIAO
+        {/* Thành tiền to rõ */}
+        <div className="text-right shrink-0">
+          <span className={`text-sm sm:text-base font-black font-mono tracking-tight ${isDelivered ? 'text-emerald-700' : 'text-indigo-700'}`}>
+            {formatVND(order.totalAmount)}
           </span>
-        ) : isInProgress ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            ĐÃ NHẬN • ĐANG LÀM
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-            <Clock className="w-3 h-3 text-blue-500" />
-            ĐÃ NHẬN • CHỜ LÀM
-          </span>
-        )}
+        </div>
       </div>
 
-      {/* Main Body: Stage Name & Metrics */}
-      <div className="py-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="text-base font-bold text-slate-800 tracking-tight flex items-center gap-2">
-              {order.stageName}
-            </h3>
-            {order.note && (
-              <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 italic">
-                {order.note}
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            <span className="text-[11px] text-slate-400 block font-medium">Đơn giá</span>
-            <span className="text-sm font-bold text-indigo-600 font-mono">
-              {formatVND(order.unitPrice)}
-            </span>
-          </div>
-        </div>
+      {/* Row 2: Toàn bộ thông số ngắn gọn, liền mạch trên 1 hàng */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 my-1.5">
+        {/* Ngày nhận */}
+        <span className="flex items-center gap-1">
+          <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+          <span>Nhận: <strong className="text-slate-800">{formatDateVN(order.receiveDate)}</strong> ({order.receiveDayOfWeek})</span>
+        </span>
 
-        {/* Quantities & Fabric info */}
-        <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 text-xs">
-          <div>
-            <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-              Số lượng nhận
-            </span>
-            <span className="text-sm font-bold text-slate-700 font-mono">
-              {formatNumber(order.receiveQuantity)} <span className="text-[11px] font-normal text-slate-500">cái</span>
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-              Kí vải
-            </span>
-            <span className="text-sm font-bold text-slate-700 font-mono">
-              {formatKg(order.receiveFabricKg)}
-            </span>
-          </div>
-        </div>
-
-        {/* Delivery Result (if delivered) */}
-        {isDelivered && (
-          <div className="mt-3 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-200/80">
-            <div className="flex items-center justify-between text-xs text-emerald-800 font-medium">
-              <span className="flex items-center gap-1">
-                <Send className="w-3 h-3 text-emerald-600" />
-                Giao ngày: {formatDateVN(order.deliveryDate || '')} ({order.deliveryDayOfWeek})
-              </span>
-              <span>SL giao: <strong className="font-mono">{formatNumber(order.deliverQuantity || order.receiveQuantity)}</strong> cái</span>
-            </div>
-            <div className="mt-1.5 flex items-baseline justify-between pt-1 border-t border-emerald-200/60">
-              <span className="text-xs font-semibold text-emerald-900 uppercase tracking-wide">
-                Thành tiền:
-              </span>
-              <span className="text-lg font-extrabold text-emerald-700 font-mono">
-                {formatVND(order.totalAmount)}
-              </span>
-            </div>
-          </div>
+        {/* Ngày giao (nếu đã giao) */}
+        {isDelivered && order.deliveryDate && (
+          <span className="flex items-center gap-1 text-emerald-800">
+            <Send className="w-3 h-3 text-emerald-600 shrink-0" />
+            <span>Giao: <strong className="text-emerald-900">{formatDateVN(order.deliveryDate)}</strong> ({order.deliveryDayOfWeek})</span>
+          </span>
         )}
+
+        <span className="text-slate-300">•</span>
+
+        {/* Số lượng */}
+        <span>
+          SL: <strong className="font-mono text-slate-900 font-bold">{formatNumber(finalQty)}</strong> cái
+        </span>
+
+        {/* Đơn giá */}
+        <span className="text-slate-400 font-mono text-[11px]">
+          ({formatVND(order.unitPrice)}/c)
+        </span>
+
+        {/* Kí vải (nếu có) */}
+        {finalFabricKg ? (
+          <>
+            <span className="text-slate-300">•</span>
+            <span>
+              Kí: <strong className="font-mono text-slate-800">{formatKg(finalFabricKg)}</strong>
+            </span>
+          </>
+        ) : null}
       </div>
 
-      {/* Actions Footer */}
-      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
+      {/* Row 3: Ghi chú nếu có */}
+      {order.note && (
+        <div className="text-[11px] text-slate-500 italic truncate mb-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100">
+          * {order.note}
+        </div>
+      )}
+
+      {/* Row 4: Thanh nút hành động tinh gọn */}
+      <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
+        {/* Nút hành động chính */}
         {!isDelivered ? (
           <button
             onClick={() => onQuickDeliver(order)}
-            className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 active:scale-98 hover:brightness-105 transition-all flex items-center justify-center gap-1.5 mr-2"
+            className="py-1 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1"
           >
-            <CheckCircle2 className="w-4 h-4" />
-            Bấm giao hàng ngay
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Giao Hàng Ngay</span>
           </button>
         ) : (
           <button
             onClick={() => onShareReceipt(order)}
-            className="py-1.5 px-3 rounded-xl bg-emerald-100/70 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold active:scale-95 transition-all flex items-center gap-1"
+            className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold active:scale-95 transition-all flex items-center gap-1 border border-emerald-200"
           >
-            <Share2 className="w-3.5 h-3.5" />
-            Xem phiếu
+            <Share2 className="w-3 h-3 text-emerald-600" />
+            <span>Xem Phiếu Zalo</span>
           </button>
         )}
 
-        <div className="flex items-center space-x-1">
+        {/* Nút Sửa & Xóa gọn gàng */}
+        <div className="flex items-center gap-1">
           <button
             onClick={() => onEdit(order)}
-            title="Chỉnh sửa"
-            className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/70 active:scale-95 transition-all"
+            title="Chỉnh sửa công đoạn"
+            className="py-1 px-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:scale-90 transition-all flex items-center gap-1 text-[11px] font-medium"
           >
-            <Edit3 className="w-4 h-4" />
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Sửa</span>
           </button>
           <button
             onClick={() => onDelete(order.id)}
-            title="Xóa"
-            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50/70 active:scale-95 transition-all"
+            title="Xóa công đoạn"
+            className="p-1 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 active:scale-90 transition-all"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
