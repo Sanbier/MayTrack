@@ -29,11 +29,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     ? (order.deliveryFabricKg || order.receiveFabricKg) 
     : order.receiveFabricKg;
 
-  // Đường viền màu nhận diện + Báo động nếu còn 1 ngày hoặc quá hạn
+  // Đường viền màu nhận diện + Báo động nếu còn 1 ngày, hôm nay hoặc quá hạn
   const baseBorder = isDelivered 
     ? 'border-l-4 border-l-emerald-500 border-slate-200/90' 
-    : urgency.cardBorderClass 
-    ? `border-l-4 ${urgency.cardBorderClass}`
+    : urgency.level === 'overdue'
+    ? 'border-l-4 border-l-rose-600 ring-2 ring-rose-400 bg-rose-50/15'
+    : urgency.level === 'today'
+    ? 'border-l-4 border-l-rose-500 ring-2 ring-amber-400 bg-amber-50/20'
+    : urgency.level === 'tomorrow'
+    ? 'border-l-4 border-l-amber-500 ring-2 ring-amber-400/80 bg-amber-50/20'
     : isInProgress 
     ? 'border-l-4 border-l-amber-500 border-slate-200/90' 
     : 'border-l-4 border-l-blue-500 border-slate-200/90';
@@ -65,11 +69,23 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </span>
           )}
 
-          {/* BÁO ĐỘNG HẠN GIAO: Còn 1 ngày / Hôm nay / Quá hạn */}
-          {urgency.level !== 'none' && urgency.level !== 'safe' && (
-            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] ${urgency.badgeClass} shrink-0`}>
+          {/* BÁO ĐỘNG HẠN GIAO: Chỉ báo động khi CÒN 1 NGÀY, HÔM NAY hoặc QUÁ HẠN */}
+          {urgency.level === 'tomorrow' && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] bg-amber-500 text-white font-extrabold animate-pulse shadow-xs ring-1 ring-amber-300 shrink-0">
               <AlertTriangle className="w-3 h-3" />
-              {urgency.badgeText}
+              ⚠️ CÒN 1 NGÀY GIAO
+            </span>
+          )}
+          {urgency.level === 'today' && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] bg-rose-500 text-white font-extrabold animate-pulse shadow-xs ring-1 ring-rose-300 shrink-0">
+              <AlertTriangle className="w-3 h-3" />
+              🚨 HÔM NAY PHẢI GIAO
+            </span>
+          )}
+          {urgency.level === 'overdue' && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] bg-rose-600 text-white font-extrabold animate-pulse shadow-xs shrink-0">
+              <AlertTriangle className="w-3 h-3" />
+              ⛔ QUÁ HẠN {Math.abs(urgency.diffDays || 0)}N
             </span>
           )}
         </div>

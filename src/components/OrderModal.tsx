@@ -287,19 +287,30 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               />
             </div>
 
-            {/* Báo động khẩn cấp nếu còn 1 ngày, hôm nay hoặc quá hạn */}
-            {deliveryDate && !isDelivered && urgency.level !== 'none' && urgency.level !== 'safe' && (
+            {/* Trạng thái hạn giao hàng (Báo động nếu còn 1 ngày / hôm nay / quá hạn) */}
+            {deliveryDate && !isDelivered && (
               <div className="col-span-12">
-                <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs ${urgency.badgeClass}`}>
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>
-                    {urgency.level === 'tomorrow' 
-                      ? '⚠️ BÁO ĐỘNG: Còn đúng 1 ngày (mai giao) - Nhớ may gấp cho kịp!' 
-                      : urgency.level === 'today'
-                      ? '🚨 KHẨN CẤP: Hạn giao hàng là HÔM NAY! Phải làm cho kịp!'
-                      : `⛔ ĐÃ QUÁ HẠN GIAO ${Math.abs(urgency.diffDays || 0)} NGÀY!`}
-                  </span>
-                </div>
+                {urgency.level === 'overdue' ? (
+                  <div className="p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-rose-600 text-white shadow-xs animate-pulse">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>⛔ ĐÃ QUÁ HẠN GIAO {Math.abs(urgency.diffDays || 0)} NGÀY!</span>
+                  </div>
+                ) : urgency.level === 'today' ? (
+                  <div className="p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-rose-500 text-white shadow-xs animate-pulse">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>🚨 KHẨN CẤP: Hạn giao hàng là HÔM NAY! Phải làm cho kịp!</span>
+                  </div>
+                ) : urgency.level === 'tomorrow' ? (
+                  <div className="p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-amber-500 text-white shadow-xs animate-pulse">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>⚠️ BÁO ĐỘNG: Còn đúng 1 ngày (mai giao) - Nhớ may gấp cho kịp!</span>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>Còn {urgency.diffDays} ngày nữa đến hạn giao ({deliveryDay} - {formatDateVN(deliveryDate)})</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
