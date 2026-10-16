@@ -75,13 +75,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     setUnitPrice(p.defaultUnitPrice);
   };
 
-  const handleAddQty = (amount: number) => {
-    setReceiveQuantity(prev => {
-      const next = Math.max(1, prev + amount);
-      if (isDelivered) setDeliverQuantity(next);
-      return next;
-    });
-  };
+
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -331,21 +325,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   setReceiveQuantity(q);
                   if (deliveryDate) setDeliverQuantity(q);
                 }}
-                className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                className="w-full h-[38px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               />
-              {/* Quick increment pills */}
-              <div className="flex gap-1 mt-1">
-                {[1, 5, 10, 50].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => handleAddQty(n)}
-                    className="flex-1 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 active:scale-95"
-                  >
-                    +{n}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="col-span-5">
@@ -362,9 +343,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   setReceiveFabricKg(e.target.value);
                   if (deliveryDate) setDeliveryFabricKg(e.target.value);
                 }}
-                className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                className="w-full h-[38px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               />
-              <span className="text-[9px] text-slate-400 mt-1 block">Tùy chọn</span>
             </div>
           </div>
 
