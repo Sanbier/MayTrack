@@ -114,7 +114,7 @@ export const QuickDeliverModal: React.FC<QuickDeliverModalProps> = ({
             <div className="col-span-7">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-indigo-500" />
-                Ngày giao hàng <span className="text-[9px] font-normal text-slate-400">(ngày/tháng/năm)</span>
+                Ngày giao hàng
               </label>
               <DateInputVN
                 value={deliveryDate}

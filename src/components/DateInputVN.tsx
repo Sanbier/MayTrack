@@ -30,10 +30,7 @@ export const DateInputVN: React.FC<DateInputVNProps> = ({
     ? 'border-emerald-300 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 bg-white'
     : 'border-slate-200 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 bg-slate-50 focus-within:bg-white';
 
-  const badgeColor = theme === 'emerald'
-    ? 'text-emerald-700 bg-emerald-100/70'
-    : 'text-indigo-600 bg-indigo-50';
-
+  
   const iconColor = theme === 'emerald' ? 'text-emerald-600' : 'text-indigo-500';
 
   return (
@@ -44,14 +41,11 @@ export const DateInputVN: React.FC<DateInputVNProps> = ({
         <div className="flex items-center gap-1.5 min-w-0 pointer-events-none">
           <Calendar className={`w-3.5 h-3.5 ${iconColor} shrink-0`} />
           <span className="font-mono text-xs font-bold text-slate-800 tracking-wider">
-            {displayFormatted || 'DD/MM/YYYY'}
+            {displayFormatted || 'Chọn ngày'}
           </span>
         </div>
 
-        {/* Nhãn nhỏ định dạng ngày/tháng/năm */}
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${badgeColor} shrink-0 pointer-events-none uppercase tracking-wider`}>
-          ngày/tháng/năm
-        </span>
+
 
         {/* Input ẩn chuẩn để bấm mở bộ chọn ngày native của iOS/Android/Chrome */}
         <input

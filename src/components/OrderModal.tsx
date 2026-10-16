@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SewingOrder, StagePreset, OrderStatus } from '../types';
-import { getTodayString, getDayOfWeekVN, formatVND, formatNumber } from '../utils/format';
+import { getTodayString, getDayOfWeekVN, formatVND, formatNumber, formatDateVN } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { DateInputVN } from './DateInputVN';
 import { X, Check, Calendar, Layers, Package, Scale, FileText, Send, Clock } from 'lucide-react';
@@ -30,8 +30,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   const [receiveFabricKg, setReceiveFabricKg] = useState<string>('');
   const [status, setStatus] = useState<OrderStatus>('IN_PROGRESS');
   
-  // Delivery fields
-  const [deliveryDate, setDeliveryDate] = useState(getTodayString());
+  // Delivery field: để trống nếu chưa giao, điền ngày nếu đã giao
+  const [deliveryDate, setDeliveryDate] = useState<string>('');
   const [deliverQuantity, setDeliverQuantity] = useState<number>(10);
   const [deliveryFabricKg, setDeliveryFabricKg] = useState<string>('');
   const [note, setNote] = useState('');
@@ -43,8 +43,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       setUnitPrice(editingOrder.unitPrice);
       setReceiveQuantity(editingOrder.receiveQuantity);
       setReceiveFabricKg(editingOrder.receiveFabricKg != null ? String(editingOrder.receiveFabricKg) : '');
-      setStatus(editingOrder.status);
-      setDeliveryDate(editingOrder.deliveryDate || getTodayString());
+      setStatus(editingOrder.status === 'DELIVERED' ? 'IN_PROGRESS' : editingOrder.status);
+      setDeliveryDate(editingOrder.deliveryDate || '');
       setDeliverQuantity(editingOrder.deliverQuantity ?? editingOrder.receiveQuantity);
       setDeliveryFabricKg(editingOrder.deliveryFabricKg != null ? String(editingOrder.deliveryFabricKg) : '');
       setNote(editingOrder.note || '');
@@ -54,8 +54,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       setUnitPrice(presets[0]?.defaultUnitPrice || 8000);
       setReceiveQuantity(10);
       setReceiveFabricKg('');
-      setStatus('IN_PROGRESS'); // Mặc định là Đã Nhận (Đang Làm)
-      setDeliveryDate(getTodayString());
+      setStatus('IN_PROGRESS'); // Mặc định là Đang Làm
+      setDeliveryDate(''); // Mặc định chưa giao
       setDeliverQuantity(10);
       setDeliveryFabricKg('');
       setNote('');
@@ -65,9 +65,9 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   if (!isOpen) return null;
 
   const receiveDay = getDayOfWeekVN(receiveDate);
-  const deliveryDay = getDayOfWeekVN(deliveryDate);
+  const deliveryDay = deliveryDate ? getDayOfWeekVN(deliveryDate) : '';
+  const isDelivered = Boolean(deliveryDate);
   const finalDeliveredQty = deliverQuantity || receiveQuantity;
-  const isDelivered = status === 'DELIVERED';
   const liveTotalAmount = unitPrice * (isDelivered ? finalDeliveredQty : receiveQuantity);
 
   const handleSelectPreset = (p: StagePreset) => {
@@ -87,6 +87,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     if (e) e.preventDefault();
     if (!stageName.trim()) return;
 
+    const finalStatus: OrderStatus = isDelivered ? 'DELIVERED' : status;
+    const finalDeliveredNumber = isDelivered ? Number(deliverQuantity || receiveQuantity) : null;
+    const finalDeliveredKg = isDelivered && deliveryFabricKg ? parseFloat(deliveryFabricKg) : null;
+
     const orderData: SewingOrder = {
       id: editingOrder ? editingOrder.id : `order_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       receiveDate,
@@ -95,11 +99,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       unitPrice: Number(unitPrice) || 0,
       receiveQuantity: Number(receiveQuantity) || 1,
       receiveFabricKg: receiveFabricKg ? parseFloat(receiveFabricKg) : null,
-      status,
+      status: finalStatus,
       deliveryDate: isDelivered ? deliveryDate : null,
       deliveryDayOfWeek: isDelivered ? deliveryDay : null,
-      deliverQuantity: isDelivered ? Number(deliverQuantity || receiveQuantity) : null,
-      deliveryFabricKg: isDelivered && deliveryFabricKg ? parseFloat(deliveryFabricKg) : null,
+      deliverQuantity: finalDeliveredNumber,
+      deliveryFabricKg: finalDeliveredKg,
       totalAmount: liveTotalAmount,
       note: note.trim() || undefined,
       createdAt: editingOrder ? editingOrder.createdAt : Date.now(),
@@ -118,7 +122,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     onClose();
   };
 
-  // Chiều cao thích ứng theo viewport bàn phím ảo & Safari Toolbar
+  // Chiều cao thích ứng theo viewport bàn phím ảo
   const maxModalHeight = Math.min(Math.max(viewportHeight - 20, 360), 840);
 
   return (
@@ -127,31 +131,31 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-t-[32px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300 border-t border-slate-100"
+        className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-t-[32px] shadow-2xl flex flex-col border-t border-slate-100 animate-in slide-in-from-bottom duration-300 overflow-hidden"
         style={{
           maxHeight: `${maxModalHeight}px`,
-          height: 'auto',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* iOS Handlebar */}
-        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto my-2 shrink-0" />
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2 shrink-0" />
 
-        {/* Compact Header */}
-        <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between shrink-0">
+        {/* Modal Header */}
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-indigo-50 text-indigo-600">
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                {editingOrder ? 'Chỉnh Sửa Công Đoạn' : 'Phiếu Nhập Công Đoạn May'}
-              </h2>
-              <p className="text-[10px] text-slate-400">Ghi nhận sản lượng & tính tiền tự động</p>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                {editingOrder ? 'Chỉnh Sửa Công Đoạn May' : 'Phiếu Nhập Công Đoạn May'}
+              </h3>
+              <p className="text-[10px] text-slate-500">
+                Ghi nhận sản lượng & tính tiền tự động
+              </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 active:scale-95 transition-all"
           >
@@ -159,42 +163,48 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-3 pb-8">
-          {/* Quick Presets Carousel */}
+        {/* Form Body - Scrollable */}
+        <form onSubmit={handleSubmit} className="p-4 overflow-y-auto space-y-3 flex-1 overscroll-contain">
+          
+          {/* Quick Preset Stage Selector */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                 Gợi ý công đoạn nhanh
-              </label>
-              <span className="text-[10px] text-indigo-600 font-medium">Bấm để tự điền giá</span>
+              </span>
+              <span className="text-[10px] text-indigo-600 font-semibold">
+                Bấm để tự điền giá
+              </span>
             </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none no-scrollbar">
-              {presets.map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handleSelectPreset(p)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 border ${
-                    stageName === p.name
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
-                  }`}
-                >
-                  <span>{p.name}</span>
-                  <span className={`text-[10px] ${stageName === p.name ? 'text-indigo-200' : 'text-slate-400 font-mono'}`}>
-                    ({formatVND(p.defaultUnitPrice)})
-                  </span>
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {presets.map(p => {
+                const isSelected = stageName === p.name;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(p)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 active:scale-95 ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span>{p.name}</span>
+                    <span className={`ml-1 text-[10px] font-mono ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>
+                      ({formatVND(p.defaultUnitPrice)})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Row 1: Tên Công Đoạn (7 cols) + Đơn Giá (5 cols) */}
+          {/* Row 1: Tên công đoạn (7 cols) + Đơn giá (5 cols) */}
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-7">
-              <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                Tên công đoạn may <span className="text-rose-500">*</span>
+              <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Tên công đoạn may <span className="text-rose-500">*</span></span>
               </label>
               <input
                 type="text"
@@ -228,12 +238,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Row 2: Ngày Nhận Hàng (Chuẩn Ngày/Tháng/Năm) + Thứ Trong Tuần */}
+          {/* Row 2: Ngày Nhận Hàng + Thứ Trong Tuần */}
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-7">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-indigo-500" />
-                Ngày nhận hàng <span className="text-[9px] font-normal text-slate-400">(ngày/tháng/năm)</span>
+                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                Ngày nhận hàng
               </label>
               <DateInputVN
                 value={receiveDate}
@@ -253,12 +263,64 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Row 3: Số Lượng Nhận (7 cols) + Kí Vải (5 cols) */}
+          {/* Row 3: Hạng Mục Ngày Giao Hàng (Thêm ngay trong phần Ngày) */}
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-7">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
+                  <Send className="w-3.5 h-3.5 text-emerald-600" />
+                  Ngày giao hàng
+                </label>
+                {deliveryDate && (
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryDate('')}
+                    className="text-[10px] text-rose-500 hover:text-rose-700 font-bold active:scale-95"
+                  >
+                    ✕ Bỏ ngày giao
+                  </button>
+                )}
+              </div>
+
+              {deliveryDate ? (
+                <DateInputVN
+                  value={deliveryDate}
+                  onChange={setDeliveryDate}
+                  theme="emerald"
+                  showQuickButtons={true}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryDate(getTodayString())}
+                  className="w-full h-[38px] px-3 rounded-xl border border-dashed border-emerald-400 bg-emerald-50/70 hover:bg-emerald-100/70 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-98 transition-all"
+                >
+                  <Send className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>+ Điền ngày giao hàng</span>
+                </button>
+              )}
+            </div>
+
+            <div className="col-span-5">
+              <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                Thứ giao
+              </label>
+              <div className={`h-[38px] px-2.5 flex items-center justify-center rounded-xl border text-xs font-bold text-center ${
+                deliveryDate 
+                  ? 'bg-emerald-100/70 border-emerald-300 text-emerald-900' 
+                  : 'bg-slate-100 border-slate-200 text-slate-400'
+              }`}>
+                {deliveryDate ? (deliveryDay || '-') : 'Chưa giao'}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4: Số Lượng (7 cols) + Kí Vải (5 cols) */}
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-7">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                <Package className="w-3 h-3 text-blue-500" />
-                Số lượng nhận (cái)
+                <Package className="w-3.5 h-3.5 text-blue-500" />
+                Số lượng (cái)
               </label>
               <input
                 type="number"
@@ -268,7 +330,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 onChange={e => {
                   const q = Number(e.target.value);
                   setReceiveQuantity(q);
-                  if (isDelivered) setDeliverQuantity(q);
+                  if (deliveryDate) setDeliverQuantity(q);
                 }}
                 className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               />
@@ -289,7 +351,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
             <div className="col-span-5">
               <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                <Scale className="w-3 h-3 text-teal-500" />
+                <Scale className="w-3.5 h-3.5 text-teal-500" />
                 Kí vải (kg)
               </label>
               <input
@@ -297,156 +359,67 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 step="0.1"
                 placeholder="VD: 8.5"
                 value={receiveFabricKg}
-                onChange={e => setReceiveFabricKg(e.target.value)}
+                onChange={e => {
+                  setReceiveFabricKg(e.target.value);
+                  if (deliveryDate) setDeliveryFabricKg(e.target.value);
+                }}
                 className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               />
               <span className="text-[9px] text-slate-400 mt-1 block">Tùy chọn</span>
             </div>
           </div>
 
-          {/* Row 4: 2 TRẠNG THÁI CHÍNH: ĐÃ NHẬN VÀ ĐÃ GIAO */}
-          <div className="space-y-2 pt-1 border-t border-slate-100">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
-                Trạng thái: Đã Nhận hay Đã Giao?
+          {/* Row 5: TRẠNG THÁI TIẾN ĐỘ: Chỉ có 2 trường hợp [ Đang Làm ] và [ Chờ Làm ] */}
+          {!deliveryDate ? (
+            <div className="space-y-1.5 pt-1 border-t border-slate-100 animate-in fade-in duration-200">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                Trạng thái công đoạn:
               </label>
-              <span className="text-[10px] text-slate-400">Chọn 1 trong 2</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatus('IN_PROGRESS')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border active:scale-98 ${
+                    status === 'IN_PROGRESS'
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25 ring-2 ring-amber-200'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${status === 'IN_PROGRESS' ? 'bg-white' : 'bg-amber-500'}`} />
+                  <span>Đang Làm</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStatus('PENDING')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border active:scale-98 ${
+                    status === 'PENDING'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-2 ring-blue-200'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Clock className={`w-3.5 h-3.5 ${status === 'PENDING' ? 'text-white' : 'text-blue-500'}`} />
+                  <span>Chờ Làm</span>
+                </button>
+              </div>
             </div>
-
-            {/* 2 Nút Chính: [ ĐÃ NHẬN ] và [ ĐÃ GIAO ] */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => {
-                  if (status === 'DELIVERED') setStatus('IN_PROGRESS');
-                }}
-                className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  !isDelivered
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Package className="w-3.5 h-3.5" />
-                <span>1. ĐÃ NHẬN</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStatus('DELIVERED')}
-                className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  isDelivered
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>2. ĐÃ GIAO</span>
-              </button>
-            </div>
-
-            {/* NẾU ĐÃ NHẬN -> 2 TRƯỜNG HỢP: [ Đang Làm ] VÀ [ Chờ Làm ] */}
-            {!isDelivered && (
-              <div className="p-2.5 rounded-xl bg-indigo-50/80 border border-indigo-100 space-y-1.5 animate-in fade-in duration-200">
-                <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-wide block">
-                  Tiến độ trong mục Đã Nhận:
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStatus('IN_PROGRESS')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
-                      status === 'IN_PROGRESS'
-                        ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                        : 'bg-white text-slate-700 border-indigo-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${status === 'IN_PROGRESS' ? 'bg-white' : 'bg-amber-500'}`} />
-                    <span>Đang Làm</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStatus('PENDING')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
-                      status === 'PENDING'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-indigo-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Clock className={`w-3.5 h-3.5 ${status === 'PENDING' ? 'text-white' : 'text-blue-500'}`} />
-                    <span>Chờ Làm</span>
-                  </button>
-                </div>
+          ) : (
+            /* Khi đã có Ngày Giao Hàng -> Hiển thị huy hiệu ĐÃ GIAO gọn gàng */
+            <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs animate-in fade-in duration-200">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Trạng thái: Đã giao hàng</span>
               </div>
-            )}
-          </div>
-
-          {/* Row 5: NẾU ĐÃ GIAO -> HIỂN THỊ THÔNG TIN BÀN GIAO & TÍNH TIỀN */}
-          {isDelivered && (
-            <div className="p-3 rounded-2xl bg-emerald-50/90 border border-emerald-200 space-y-2.5 animate-in fade-in duration-200">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 uppercase tracking-wide">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                Thông tin bàn giao & tính tiền
-              </div>
-
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-7">
-                  <label className="text-[10px] font-semibold text-emerald-900 mb-0.5 block">
-                    Ngày giao hàng <span className="text-[9px] font-normal text-emerald-700/70">(ngày/tháng/năm)</span>
-                  </label>
-                  <DateInputVN
-                    value={deliveryDate}
-                    onChange={setDeliveryDate}
-                    required
-                    theme="emerald"
-                    showQuickButtons={true}
-                  />
-                </div>
-                <div className="col-span-5">
-                  <label className="text-[10px] font-semibold text-emerald-900 mb-0.5 block">
-                    Thứ giao
-                  </label>
-                  <div className="h-[38px] px-2.5 flex items-center justify-center rounded-lg bg-emerald-100/60 border border-emerald-200 text-xs font-bold text-emerald-900 text-center">
-                    {deliveryDay || '-'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-7">
-                  <label className="text-[10px] font-semibold text-emerald-900 mb-0.5 block">
-                    Số lượng thực giao
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={deliverQuantity || ''}
-                    onChange={e => setDeliverQuantity(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 rounded-lg bg-white border border-emerald-300 text-xs font-bold text-emerald-800 font-mono outline-none"
-                  />
-                </div>
-                <div className="col-span-5">
-                  <label className="text-[10px] font-semibold text-emerald-900 mb-0.5 block">
-                    Kí vải giao
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="VD: 8"
-                    value={deliveryFabricKg}
-                    onChange={e => setDeliveryFabricKg(e.target.value)}
-                    className="w-full px-2 py-1.5 rounded-lg bg-white border border-emerald-300 text-xs font-semibold text-slate-800 font-mono outline-none"
-                  />
-                </div>
-              </div>
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md font-mono">
+                {deliveryDay} ({formatDateVN(deliveryDate)})
+              </span>
             </div>
           )}
 
           {/* Row 6: Ghi chú thêm */}
           <div>
             <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-              <FileText className="w-3 h-3 text-slate-400" />
+              <FileText className="w-3.5 h-3.5 text-slate-400" />
               Ghi chú thêm (Mã hàng, size...)
             </label>
             <input
