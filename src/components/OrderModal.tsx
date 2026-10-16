@@ -3,7 +3,7 @@ import { SewingOrder, StagePreset, OrderStatus } from '../types';
 import { getTodayString, getDayOfWeekVN, formatVND, formatNumber, formatDateVN, getDeliveryUrgency } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { DateInputVN } from './DateInputVN';
-import { X, Check, Calendar, Layers, Package, Scale, FileText, Send, Clock, AlertTriangle, ChevronDown, List, Edit2 } from 'lucide-react';
+import { X, Check, Calendar, Layers, Package, Scale, FileText, Send, Clock, AlertTriangle, ChevronDown } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface OrderModalProps {
@@ -25,7 +25,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
   const [receiveDate, setReceiveDate] = useState(getTodayString());
   const [stageName, setStageName] = useState('');
-  const [isCustomStage, setIsCustomStage] = useState(false);
   const [unitPrice, setUnitPrice] = useState<number>(8000);
   const [receiveQuantity, setReceiveQuantity] = useState<number>(10);
   const [receiveFabricKg, setReceiveFabricKg] = useState<string>('');
@@ -40,14 +39,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   useEffect(() => {
     if (editingOrder) {
       setReceiveDate(editingOrder.receiveDate);
-      const matched = presets.find(p => p.name.trim().toLowerCase() === editingOrder.stageName.trim().toLowerCase());
-      if (matched) {
-        setStageName(matched.name);
-        setIsCustomStage(false);
-      } else {
-        setStageName(editingOrder.stageName);
-        setIsCustomStage(true);
-      }
+      setStageName(editingOrder.stageName);
       setUnitPrice(editingOrder.unitPrice);
       setReceiveQuantity(editingOrder.receiveQuantity);
       setReceiveFabricKg(editingOrder.receiveFabricKg != null ? String(editingOrder.receiveFabricKg) : '');
@@ -61,7 +53,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       const firstPreset = presets[0];
       setStageName(firstPreset?.name || 'TIM TIA');
       setUnitPrice(firstPreset?.defaultUnitPrice || 8000);
-      setIsCustomStage(false);
       setReceiveQuantity(10);
       setReceiveFabricKg('');
       setStatus('IN_PROGRESS'); // Mặc định là Đang Làm
@@ -166,119 +157,58 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         {/* Form Body - Scrollable */}
         <form onSubmit={handleSubmit} className="p-4 overflow-y-auto space-y-3 flex-1 overscroll-contain">
           
-          {/* Row 1: Tên công đoạn (Dropdown List / Tự nhập) (7 cols) + Đơn giá (5 cols) */}
-          <div className='grid grid-cols-12 gap-2'>
-            <div className='col-span-7'>
-              <label className='text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between'>
-                <span>Tên công đoạn <span className='text-rose-500'>*</span></span>
-                <button
-                  type='button'
-                  onClick={() => {
-                    if (isCustomStage) {
-                      setIsCustomStage(false);
-                      if (!presets.some(p => p.name === stageName) && presets.length > 0) {
-                        setStageName(presets[0].name);
-                        setUnitPrice(presets[0].defaultUnitPrice);
-                      }
+          {/* Row 1: Tên công đoạn (Chọn từ Bảng Giá) (7 cols) + Đơn giá (5 cols) */}
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-7">
+              <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Tên công đoạn <span className="text-rose-500">*</span></span>
+                <span className="text-[10px] text-indigo-600 font-bold">Theo Bảng Giá</span>
+              </label>
+
+              <div className="relative">
+                <select
+                  value={stageName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const matched = presets.find(p => p.name === val);
+                    if (matched) {
+                      setStageName(matched.name);
+                      setUnitPrice(matched.defaultUnitPrice);
                     } else {
-                      setIsCustomStage(true);
+                      setStageName(val);
                     }
                   }}
-                  className='text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5 active:scale-95 transition-all'
+                  className="w-full h-[38px] pl-3 pr-8 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer truncate"
                 >
-                  {isCustomStage ? (
-                    <>
-                      <List className='w-3 h-3' />
-                      <span>Chọn list</span>
-                    </>
-                  ) : (
-                    <>
-                      <Edit2 className='w-2.5 h-2.5' />
-                      <span>Tự nhập</span>
-                    </>
+                  {presets.map(p => (
+                    <option key={p.id} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                  {!presets.some(p => p.name === stageName) && stageName && (
+                    <option value={stageName}>{stageName}</option>
                   )}
-                </button>
-              </label>
-
-              {isCustomStage ? (
-                <div className='relative flex items-center'>
-                  <input
-                    type='text'
-                    required
-                    autoFocus
-                    placeholder='Nhập tên công đoạn...'
-                    value={stageName}
-                    onChange={e => setStageName(e.target.value)}
-                    className='w-full h-[38px] pl-3 pr-8 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all'
-                  />
-                  <button
-                    type='button'
-                    onClick={() => {
-                      setIsCustomStage(false);
-                      if (presets.length > 0) {
-                        setStageName(presets[0].name);
-                        setUnitPrice(presets[0].defaultUnitPrice);
-                      }
-                    }}
-                    className='absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-600 rounded transition-all'
-                    title='Quay lại danh sách công đoạn'
-                  >
-                    <List className='w-4 h-4' />
-                  </button>
-                </div>
-              ) : (
-                <div className='relative'>
-                  <select
-                    value={stageName}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '__custom__') {
-                        setIsCustomStage(true);
-                        setStageName('');
-                      } else {
-                        setIsCustomStage(false);
-                        const matched = presets.find(p => p.name === val);
-                        if (matched) {
-                          setStageName(matched.name);
-                          setUnitPrice(matched.defaultUnitPrice);
-                        } else {
-                          setStageName(val);
-                        }
-                      }
-                    }}
-                    className='w-full h-[38px] pl-3 pr-8 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer truncate'
-                  >
-                    {presets.map(p => (
-                      <option key={p.id} value={p.name}>
-                        {p.name}
-                      </option>
-                    ))}
-                    {!presets.some(p => p.name === stageName) && stageName && (
-                      <option value={stageName}>{stageName}</option>
-                    )}
-                    <option value='__custom__'>✏️ Nhập công đoạn khác...</option>
-                  </select>
-                  <ChevronDown className='w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none' />
-                </div>
-              )}
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
-            <div className='col-span-5'>
-              <label className='text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between'>
+            <div className="col-span-5">
+              <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
                 <span>Đơn giá</span>
-                <span className='text-[10px] text-indigo-600 font-mono font-bold'>VNĐ/cái</span>
+                <span className="text-[10px] text-indigo-600 font-mono font-bold">VNĐ/cái</span>
               </label>
-              <div className='relative'>
+              <div className="relative">
                 <input
-                  type='number'
-                  min='0'
-                  step='100'
+                  type="number"
+                  min="0"
+                  step="100"
                   required
                   value={unitPrice || ''}
                   onChange={e => setUnitPrice(Number(e.target.value))}
-                  className='w-full h-[38px] pl-2.5 pr-6 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-indigo-700 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all'
+                  className="w-full h-[38px] pl-2.5 pr-6 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-indigo-700 font-mono focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 />
-                <span className='absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none'>
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
                   đ
                 </span>
               </div>
