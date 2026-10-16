@@ -26,7 +26,7 @@ import { BottomTabBar } from './components/BottomTabBar';
 import { 
   Search, Plus, CheckCircle2, Clock, 
   TrendingUp, Scissors, ChevronRight, ChevronLeft, FileSpreadsheet, Settings, 
-  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar
+  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar, Package, Layers
 } from 'lucide-react';
 
 function getCurrentMonthString(): string {
@@ -68,7 +68,7 @@ export function App() {
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'RECEIVED' | 'IN_PROGRESS' | 'PENDING' | 'DELIVERED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'RECEIVED' | 'IN_PROGRESS' | 'PENDING' | 'DELIVERED'>('RECEIVED');
   
   // Selected month: e.g. '2026-10' or 'ALL'
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -122,10 +122,25 @@ export function App() {
   const [isExportOpen, setExportOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
 
-  const receivedCount = useMemo(() => orders.filter(o => o.status !== 'DELIVERED').length, [orders]);
-  const deliveredCount = useMemo(() => orders.filter(o => o.status === 'DELIVERED').length, [orders]);
-  const inProgressCount = useMemo(() => orders.filter(o => o.status === 'IN_PROGRESS').length, [orders]);
-  const pendingCount = useMemo(() => orders.filter(o => o.status === 'PENDING').length, [orders]);
+  // Orders filtered by the active period (Selected Date or Selected Month or All)
+  const periodOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (selectedDate) {
+        return o.receiveDate === selectedDate || o.deliveryDate === selectedDate;
+      }
+      if (selectedMonth !== 'ALL') {
+        const inReceive = o.receiveDate.startsWith(selectedMonth);
+        const inDelivery = o.deliveryDate ? o.deliveryDate.startsWith(selectedMonth) : false;
+        return inReceive || inDelivery;
+      }
+      return true;
+    });
+  }, [orders, selectedMonth, selectedDate]);
+
+  const receivedCount = useMemo(() => periodOrders.filter(o => o.status !== 'DELIVERED').length, [periodOrders]);
+  const deliveredCount = useMemo(() => periodOrders.filter(o => o.status === 'DELIVERED').length, [periodOrders]);
+  const inProgressCount = useMemo(() => periodOrders.filter(o => o.status === 'IN_PROGRESS').length, [periodOrders]);
+  const pendingCount = useMemo(() => periodOrders.filter(o => o.status === 'PENDING').length, [periodOrders]);
 
   // Handle month stepper
   const handlePrevMonth = () => {
@@ -252,9 +267,9 @@ export function App() {
     };
   }, [applyCloudPayload]);
 
-  // Filtered & Sorted orders by real calendar date
+  // Filtered & Sorted orders for display in Sổ Công Đoạn
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
+    return periodOrders.filter(o => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = o.stageName.toLowerCase().includes(q);
@@ -266,15 +281,6 @@ export function App() {
       } else if (statusFilter !== 'ALL' && o.status !== statusFilter) {
         return false;
       }
-      if (selectedDate) {
-        const matchReceive = o.receiveDate === selectedDate;
-        const matchDelivery = o.deliveryDate === selectedDate;
-        if (!matchReceive && !matchDelivery) return false;
-      } else if (selectedMonth !== 'ALL') {
-        const inReceive = o.receiveDate.startsWith(selectedMonth);
-        const inDelivery = o.deliveryDate ? o.deliveryDate.startsWith(selectedMonth) : false;
-        if (!inReceive && !inDelivery) return false;
-      }
       return true;
     }).sort((a, b) => {
       const dateA = a.receiveDate || '';
@@ -285,9 +291,9 @@ export function App() {
       if (diff !== 0) return diff;
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
-  }, [orders, searchQuery, statusFilter, selectedMonth, sortOrder]);
+  }, [periodOrders, searchQuery, statusFilter, sortOrder]);
 
-  // Calculations
+  // Calculations for current period
   const stats = useMemo(() => {
     let totalDeliveredAmount = 0;
     let totalPendingAmount = 0;
@@ -295,13 +301,7 @@ export function App() {
     let totalPendingQty = 0;
     let totalFabricKg = 0;
 
-    const relevantOrders = selectedDate 
-      ? orders.filter(o => o.receiveDate === selectedDate || o.deliveryDate === selectedDate)
-      : (selectedMonth === 'ALL' 
-          ? orders 
-          : orders.filter(o => o.receiveDate.startsWith(selectedMonth) || (o.deliveryDate && o.deliveryDate.startsWith(selectedMonth))));
-
-    relevantOrders.forEach(o => {
+    periodOrders.forEach(o => {
       if (o.status === 'DELIVERED') {
         totalDeliveredAmount += o.totalAmount || (o.unitPrice * (o.deliverQuantity || o.receiveQuantity));
         totalDeliveredQty += o.deliverQuantity || o.receiveQuantity;
@@ -322,12 +322,12 @@ export function App() {
       totalPendingQty,
       totalFabricKg,
     };
-  }, [orders, selectedMonth, selectedDate]);
+  }, [periodOrders]);
 
-  // Breakdown by stage name
+  // Breakdown by stage name for current period
   const stageBreakdown = useMemo(() => {
     const map: { [name: string]: { count: number; qty: number; amount: number } } = {};
-    orders.forEach(o => {
+    periodOrders.forEach(o => {
       if (!map[o.stageName]) {
         map[o.stageName] = { count: 0, qty: 0, amount: 0 };
       }
@@ -341,7 +341,7 @@ export function App() {
       name,
       ...data,
     })).sort((a, b) => b.amount - a.amount);
-  }, [orders]);
+  }, [periodOrders]);
 
   // Handlers
   const handleSaveOrder = (saved: SewingOrder) => {
@@ -398,22 +398,7 @@ export function App() {
     setSettings(DEFAULT_SETTINGS);
   };
 
-  // Orders for Dashboard sorted chronologically
-  const activeDashboardOrders = useMemo(() => {
-    return orders
-      .filter(o => o.status !== 'DELIVERED')
-      .sort((a, b) => b.receiveDate.localeCompare(a.receiveDate));
-  }, [orders]);
 
-  const recentDeliveredDashboardOrders = useMemo(() => {
-    return orders
-      .filter(o => o.status === 'DELIVERED')
-      .sort((a, b) => {
-        const dateA = a.deliveryDate || a.receiveDate;
-        const dateB = b.deliveryDate || b.receiveDate;
-        return dateB.localeCompare(dateA);
-      });
-  }, [orders]);
 
   return (
     // DESKTOP IPHONE SIMULATOR WRAPPER
@@ -520,7 +505,7 @@ export function App() {
             </button>
           </div>
         </div>
-        {/* TAB 1: DASHBOARD */}
+        {/* TAB 1: DASHBOARD (TỔNG QUAN) */}
         {currentTab === 'dashboard' && (
           <div className="space-y-3 animate-in fade-in duration-200">
             
@@ -533,87 +518,136 @@ export function App() {
               totalFabricKg={stats.totalFabricKg}
             />
 
-            {/* Active / In-progress tasks */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-amber-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Công Đoạn Đã Nhận ({activeDashboardOrders.length})
-                  </h3>
-                </div>
+            {/* Bảng Tiến Độ Công Đoạn: ĐÃ NHẬN vs ĐÃ GIAO */}
+            <div className="p-4 rounded-3xl ios-glass border border-white/70 shadow-ios-card space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase font-extrabold tracking-wider text-slate-500">
+                  Tiến độ công đoạn ({formatMonthLabel(selectedMonth)})
+                </span>
+                <span className="text-xs font-mono font-bold text-indigo-700">
+                  Tổng {periodOrders.length} đơn
+                </span>
+              </div>
+
+              {/* 2 Khối Lựa Chọn: ĐÃ NHẬN và ĐÃ GIAO */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Khối 1: ĐÃ NHẬN */}
                 <button
+                  type="button"
                   onClick={() => {
                     setStatusFilter('RECEIVED');
                     setCurrentTab('orders');
                   }}
-                  className="text-xs font-semibold text-indigo-600 flex items-center"
+                  className="p-3 rounded-2xl bg-indigo-50/70 hover:bg-indigo-50 border border-indigo-100 text-left transition-all active:scale-98 group"
                 >
-                  Xem tất cả <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                </button>
-              </div>
-
-              <div className="space-y-2.5">
-                {activeDashboardOrders.slice(0, 3).map(order => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onQuickDeliver={setQuickDeliverOrder}
-                    onEdit={handleOpenEdit}
-                    onDelete={handleDeleteOrder}
-                    onShareReceipt={setReceiptOrder}
-                  />
-                ))}
-
-                {activeDashboardOrders.length === 0 && (
-                  <div className="p-5 text-center rounded-2xl ios-glass border border-dashed border-slate-300">
-                    <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1" />
-                    <p className="text-xs font-bold text-slate-700">Tất cả hàng đã được bàn giao!</p>
-                    <p className="text-[11px] text-slate-400">Không còn công đoạn đã nhận nào chưa giao</p>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                      <Package className="w-3.5 h-3.5 text-indigo-600" />
+                      1. Đã Nhận
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
                   </div>
-                )}
-              </div>
-            </div>
+                  <div className="text-xl font-extrabold font-mono text-indigo-700">
+                    {receivedCount} <span className="text-[10px] font-normal text-slate-500">đơn</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-indigo-100/80 space-y-0.5 text-[10px] text-slate-600">
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        Đang làm:
+                      </span>
+                      <strong className="font-mono text-amber-700">{inProgressCount}</strong>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        Chờ làm:
+                      </span>
+                      <strong className="font-mono text-blue-700">{pendingCount}</strong>
+                    </div>
+                  </div>
+                </button>
 
-            {/* Recently Delivered */}
-            <div className="pt-1">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Công Đoạn Đã Giao Gần Đây
-                  </h3>
-                </div>
+                {/* Khối 2: ĐÃ GIAO */}
                 <button
+                  type="button"
                   onClick={() => {
                     setStatusFilter('DELIVERED');
                     setCurrentTab('orders');
                   }}
-                  className="text-xs font-semibold text-indigo-600 flex items-center"
+                  className="p-3 rounded-2xl bg-emerald-50/70 hover:bg-emerald-50 border border-emerald-100 text-left transition-all active:scale-98 group"
                 >
-                  Xem tất cả <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-emerald-950 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      2. Đã Giao
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                  <div className="text-xl font-extrabold font-mono text-emerald-700">
+                    {deliveredCount} <span className="text-[10px] font-normal text-slate-500">đơn</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-emerald-100/80 space-y-0.5 text-[10px] text-slate-600">
+                    <div className="flex justify-between items-center">
+                      <span>Thực nhận:</span>
+                      <strong className="font-mono text-emerald-700">{formatVND(stats.totalDeliveredAmount)}</strong>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Sản lượng:</span>
+                      <strong className="font-mono text-slate-800">{formatNumber(stats.totalDeliveredQty)} cái</strong>
+                    </div>
+                  </div>
                 </button>
               </div>
 
-              <div className="space-y-2.5">
-                {recentDeliveredDashboardOrders.slice(0, 3).map(order => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onQuickDeliver={setQuickDeliverOrder}
-                    onEdit={handleOpenEdit}
-                    onDelete={handleDeleteOrder}
-                    onShareReceipt={setReceiptOrder}
-                  />
-                ))}
-
-                {recentDeliveredDashboardOrders.length === 0 && (
-                  <div className="p-3 text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200">
-                    <p className="text-xs text-slate-400">Chưa có công đoạn nào đã giao</p>
-                  </div>
-                )}
-              </div>
+              {/* Nút bấm trực tiếp mở Sổ Công Đoạn */}
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('RECEIVED');
+                  setCurrentTab('orders');
+                }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-400" />
+                  <span>Xem Chi Tiết Sổ Công Đoạn ({periodOrders.length} đơn)</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
             </div>
+
+            {/* Top công đoạn thực hiện nhiều nhất */}
+            {stageBreakdown.length > 0 && (
+              <div className="p-3.5 rounded-3xl ios-glass border border-white/70 shadow-ios-card space-y-2">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[11px] uppercase font-extrabold tracking-wider text-slate-500">
+                    Top công đoạn may nhiều nhất
+                  </span>
+                  <button
+                    onClick={() => setCurrentTab('reports')}
+                    className="text-[11px] font-bold text-indigo-600 flex items-center"
+                  >
+                    Xem báo cáo <ChevronRight className="w-3 h-3 ml-0.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {stageBreakdown.slice(0, 3).map(item => (
+                    <div key={item.name} className="p-2 rounded-xl bg-slate-50/80 border border-slate-100 flex items-center justify-between text-xs">
+                      <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                        <span>{item.name}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">({item.count} đơn • {formatNumber(item.qty)} cái)</span>
+                      </div>
+                      <span className="font-mono font-bold text-indigo-700">
+                        {formatVND(item.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -647,19 +681,9 @@ export function App() {
               </button>
             </div>
 
-            {/* 2 Trạng Thái Chính: ĐÃ NHẬN vs ĐÃ GIAO */}
+            {/* 2 Trạng Thái Chính: ĐÃ NHẬN, ĐÃ GIAO, rồi đến TẤT CẢ ở cuối */}
             <div className="space-y-1.5">
               <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/70 rounded-2xl text-xs font-bold">
-                <button
-                  onClick={() => setStatusFilter('ALL')}
-                  className={`py-1.5 rounded-xl transition-all ${
-                    statusFilter === 'ALL'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Tất cả ({orders.length})
-                </button>
                 <button
                   onClick={() => setStatusFilter('RECEIVED')}
                   className={`py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 ${
@@ -671,6 +695,7 @@ export function App() {
                   <span>1. Đã Nhận</span>
                   <span className="text-[10px] opacity-80 font-mono">({receivedCount})</span>
                 </button>
+
                 <button
                   onClick={() => setStatusFilter('DELIVERED')}
                   className={`py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 ${
@@ -682,25 +707,28 @@ export function App() {
                   <span>2. Đã Giao</span>
                   <span className="text-[10px] opacity-80 font-mono">({deliveredCount})</span>
                 </button>
+
+                <button
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 ${
+                    statusFilter === 'ALL'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Tất Cả</span>
+                  <span className="text-[10px] opacity-80 font-mono">({periodOrders.length})</span>
+                </button>
               </div>
 
-              {/* Nếu chọn nhóm [ ĐÃ NHẬN ] -> Hiển thị 2 trường hợp: [ Đang Làm ] và [ Chờ Làm ] */}
+              {/* Nếu chọn nhóm [ ĐÃ NHẬN ] -> Hiển thị: [ Đang Làm ], [ Chờ Làm ] rồi mới đến [ Tất Cả Đã Nhận ] ở cuối */}
               {(statusFilter === 'RECEIVED' || statusFilter === 'IN_PROGRESS' || statusFilter === 'PENDING') && (
                 <div className="flex items-center gap-1 px-1.5 py-1 bg-indigo-50/90 rounded-xl border border-indigo-100 text-[11px] font-bold animate-in fade-in duration-200">
                   <span className="text-[10px] text-indigo-900/70 pl-1 uppercase tracking-wide shrink-0">Lọc:</span>
-                  <button
-                    onClick={() => setStatusFilter('RECEIVED')}
-                    className={`px-2 py-0.5 rounded-lg transition-all ${
-                      statusFilter === 'RECEIVED'
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-white/80 text-slate-700 hover:bg-white'
-                    }`}
-                  >
-                    Tất cả ({receivedCount})
-                  </button>
+                  
                   <button
                     onClick={() => setStatusFilter('IN_PROGRESS')}
-                    className={`px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
+                    className={`px-2.5 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
                       statusFilter === 'IN_PROGRESS'
                         ? 'bg-amber-500 text-white shadow-xs'
                         : 'bg-white/80 text-slate-700 hover:bg-white'
@@ -709,9 +737,10 @@ export function App() {
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Đang làm ({inProgressCount})
                   </button>
+
                   <button
                     onClick={() => setStatusFilter('PENDING')}
-                    className={`px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
+                    className={`px-2.5 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
                       statusFilter === 'PENDING'
                         ? 'bg-blue-600 text-white shadow-xs'
                         : 'bg-white/80 text-slate-700 hover:bg-white'
@@ -719,6 +748,17 @@ export function App() {
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                     Chờ làm ({pendingCount})
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('RECEIVED')}
+                    className={`px-2.5 py-0.5 rounded-lg transition-all ${
+                      statusFilter === 'RECEIVED'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    Tất cả ({receivedCount})
                   </button>
                 </div>
               )}
