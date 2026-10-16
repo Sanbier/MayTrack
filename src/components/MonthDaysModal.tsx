@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SewingOrder } from '../types';
-import { formatVND, formatNumber } from '../utils/format';
-import { X, ChevronLeft, ChevronRight, Calendar, Check, Circle } from 'lucide-react';
+import { useVisualViewport } from '../utils/useVisualViewport';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MonthDaysModalProps {
   isOpen: boolean;
@@ -22,6 +22,8 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
   onSelectDate,
   onSelectMonth,
 }) => {
+  const viewportHeight = useVisualViewport();
+
   // Current viewing month/year in the calendar
   const initialBase = selectedMonth !== 'ALL' ? selectedMonth : new Date().toISOString().substring(0, 7);
   const [viewYear, setViewYear] = useState<number>(() => parseInt(initialBase.split('-')[0], 10));
@@ -97,20 +99,25 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
     onClose();
   };
 
+  const maxModalHeight = Math.min(Math.max(viewportHeight - 20, 360), 820);
+
   return (
     <div 
       className="fixed md:absolute inset-0 z-50 flex items-end justify-center p-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-lg bg-white rounded-t-[32px] shadow-2xl p-5 border-t border-slate-100 animate-in slide-in-from-bottom duration-300 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+        className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-t-[32px] shadow-2xl p-4 sm:p-5 border-t border-slate-100 animate-in slide-in-from-bottom duration-300 pb-[calc(1.25rem+env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain"
+        style={{
+          maxHeight: `${maxModalHeight}px`,
+        }}
         onClick={e => e.stopPropagation()}
       >
         {/* iOS Handlebar */}
-        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto -mt-1 mb-3" />
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto -mt-1 mb-2.5" />
 
         {/* Header: Month & Year Navigator */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
           <div className="flex items-center gap-1.5">
             <button
               onClick={handlePrevMonth}
@@ -118,7 +125,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <h3 className="text-base font-extrabold text-slate-900 tracking-tight font-mono px-2">
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight font-mono px-2">
               Tháng {viewMonth}/{viewYear}
             </h3>
             <button
@@ -131,18 +138,18 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
 
           <button 
             onClick={onClose} 
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-400 active:scale-95 transition-all"
+            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 active:scale-95 transition-all"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Calendar Day-of-Week Headers */}
-        <div className="grid grid-cols-7 gap-1 text-center my-2">
+        <div className="grid grid-cols-7 gap-1 text-center my-1.5">
           {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((dw, i) => (
             <span 
               key={dw} 
-              className={`text-[11px] font-bold uppercase py-1 ${
+              className={`text-[10px] font-bold uppercase py-0.5 ${
                 i === 6 ? 'text-rose-500' : 'text-slate-400'
               }`}
             >
@@ -155,7 +162,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
         <div className="grid grid-cols-7 gap-1 text-center">
           {/* Empty offset days before 1st of month */}
           {Array.from({ length: startOffset }).map((_, i) => (
-            <div key={`offset-${i}`} className="h-11" />
+            <div key={`offset-${i}`} className="h-10 sm:h-11" />
           ))}
 
           {/* Days 1 to 31 */}
@@ -171,7 +178,7 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
               <button
                 key={dayNum}
                 onClick={() => handleDayClick(dayNum)}
-                className={`h-11 rounded-xl flex flex-col items-center justify-center relative transition-all active:scale-95 ${
+                className={`h-10 sm:h-11 rounded-xl flex flex-col items-center justify-center relative transition-all active:scale-95 ${
                   isSelected
                     ? 'bg-indigo-600 text-white font-extrabold shadow-md shadow-indigo-600/30'
                     : isToday
@@ -199,17 +206,17 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 my-3 pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-center gap-3 text-[10px] text-slate-500 my-2 pt-2 border-t border-slate-100">
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Có đơn đã giao
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Đã giao
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Có đơn đang may
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Đang may
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full border border-indigo-500 bg-indigo-100" />
+            <span className="w-1.5 h-1.5 rounded-full border border-indigo-500 bg-indigo-100" />
             Hôm nay
           </span>
         </div>
@@ -218,9 +225,9 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
           <button
             onClick={handleSelectWholeMonth}
-            className={`py-2.5 rounded-2xl text-xs font-bold transition-all border ${
+            className={`py-2 rounded-xl text-xs font-bold transition-all border ${
               selectedMonth === currentMonthStr && selectedDate === null
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
             }`}
           >
@@ -229,13 +236,13 @@ export const MonthDaysModal: React.FC<MonthDaysModalProps> = ({
 
           <button
             onClick={handleSelectAllTime}
-            className={`py-2.5 rounded-2xl text-xs font-bold transition-all border ${
+            className={`py-2 rounded-xl text-xs font-bold transition-all border ${
               selectedMonth === 'ALL'
                 ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
             }`}
           >
-            Xem tất cả các tháng
+            Xem toàn bộ
           </button>
         </div>
       </div>

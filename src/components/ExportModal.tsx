@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { SewingOrder, StagePreset, WorkshopSettings } from '../types';
 import { exportToCSV, exportJSONBackup } from '../utils/storage';
-import { X, FileSpreadsheet, Download, Upload, RefreshCw, AlertTriangle, Check } from 'lucide-react';
+import { useVisualViewport } from '../utils/useVisualViewport';
+import { X, FileSpreadsheet, Download, Upload, RefreshCw } from 'lucide-react';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onRestore,
   onResetSample,
 }) => {
+  const viewportHeight = useVisualViewport();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -49,44 +51,51 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     reader.readAsText(file);
   };
 
+  const maxModalHeight = Math.min(Math.max(viewportHeight - 20, 360), 820);
+
   return (
     <div className="fixed md:absolute inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 border border-slate-100 animate-in slide-in-from-bottom-6 duration-300"
+        className="w-full max-w-md bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl p-4 sm:p-5 border border-slate-100 animate-in slide-in-from-bottom duration-300 overflow-y-auto overscroll-contain pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        style={{
+          maxHeight: `${maxModalHeight}px`,
+        }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto -mt-1 mb-2.5 sm:hidden" />
+
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
-              <FileSpreadsheet className="w-5 h-5" />
+            <div className="p-1.5 rounded-xl bg-teal-50 text-teal-600">
+              <FileSpreadsheet className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-800">Xuất & Sao Lưu Dữ Liệu</h3>
-              <p className="text-xs text-slate-500">Đồng bộ với Google Sheet & bảo vệ dữ liệu</p>
+              <h3 className="text-sm sm:text-base font-bold text-slate-800">Xuất & Sao Lưu Dữ Liệu</h3>
+              <p className="text-[10px] text-slate-500">Đồng bộ với Google Sheet & bảo vệ dữ liệu</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400">
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="my-4 space-y-3">
+        <div className="my-3 space-y-2.5">
           {/* Action 1: Export CSV Google Sheet */}
           <button
             onClick={() => {
               exportToCSV(orders);
             }}
-            className="w-full p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-left flex items-start gap-3 transition-all active:scale-98"
+            className="w-full p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-left flex items-start gap-3 transition-all active:scale-98"
           >
-            <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20">
-              <FileSpreadsheet className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-sm">
+              <FileSpreadsheet className="w-4 h-4" />
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-bold text-emerald-950">
+              <h4 className="text-xs font-bold text-emerald-950">
                 Xuất file CSV (Chuẩn Google Sheet)
               </h4>
-              <p className="text-xs text-emerald-700/80 mt-0.5">
-                Đúng định dạng 2 cột: CÔNG ĐOẠN NHẬN & CÔNG ĐOẠN GIAO như mẫu bảng tính.
+              <p className="text-[11px] text-emerald-700/80 mt-0.5">
+                Đúng định dạng 2 cột CÔNG ĐOẠN NHẬN & CÔNG ĐOẠN GIAO như mẫu bảng tính.
               </p>
             </div>
           </button>
@@ -96,16 +105,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             onClick={() => {
               exportJSONBackup(orders, presets, settings);
             }}
-            className="w-full p-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100/70 border border-indigo-200 text-left flex items-start gap-3 transition-all active:scale-98"
+            className="w-full p-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100/70 border border-indigo-200 text-left flex items-start gap-3 transition-all active:scale-98"
           >
-            <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
-              <Download className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-sm">
+              <Download className="w-4 h-4" />
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-bold text-indigo-950">
+              <h4 className="text-xs font-bold text-indigo-950">
                 Sao lưu tệp dự phòng (JSON)
               </h4>
-              <p className="text-xs text-indigo-700/80 mt-0.5">
+              <p className="text-[11px] text-indigo-700/80 mt-0.5">
                 Lưu trữ toàn bộ đơn hàng, bảng giá và cài đặt để chuyển sang máy khác.
               </p>
             </div>
@@ -122,16 +131,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left flex items-start gap-3 transition-all active:scale-98"
+              className="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left flex items-start gap-3 transition-all active:scale-98"
             >
-              <div className="p-2.5 rounded-xl bg-slate-700 text-white">
-                <Upload className="w-5 h-5" />
+              <div className="p-2 rounded-xl bg-slate-700 text-white">
+                <Upload className="w-4 h-4" />
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-bold text-slate-800">
+                <h4 className="text-xs font-bold text-slate-800">
                   Khôi phục dữ liệu từ tệp sao lưu
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   Tải tệp .json đã lưu trước đó để đồng bộ lại dữ liệu vào máy.
                 </p>
               </div>
@@ -146,17 +155,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 onClose();
               }
             }}
-            className="w-full p-3 rounded-2xl bg-amber-50/60 hover:bg-amber-100/60 border border-amber-200/60 text-left flex items-center gap-2.5 transition-all text-xs font-semibold text-amber-800"
+            className="w-full p-2.5 rounded-2xl bg-amber-50/60 hover:bg-amber-100/60 border border-amber-200/60 text-left flex items-center gap-2 transition-all text-[11px] font-semibold text-amber-800"
           >
-            <RefreshCw className="w-4 h-4 text-amber-600" />
+            <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
             <span>Khôi phục dữ liệu mẫu bảng tính gốc (03/07/2026 - TIM TIA)</span>
           </button>
         </div>
 
-        <div className="pt-2 pb-[env(safe-area-inset-bottom)]">
+        <div className="pt-2">
           <button
             onClick={onClose}
-            className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+            className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
           >
             Đóng
           </button>
