@@ -1,7 +1,7 @@
 import React from 'react';
 import { SewingOrder } from '../types';
-import { formatVND, formatDateVN, formatNumber, formatKg } from '../utils/format';
-import { CheckCircle2, Clock, Calendar, Edit3, Trash2, Send, Share2 } from 'lucide-react';
+import { formatVND, formatDateVN, formatNumber, formatKg, getDeliveryUrgency, getDayOfWeekVN } from '../utils/format';
+import { CheckCircle2, Clock, Calendar, Edit3, Trash2, Send, Share2, AlertTriangle } from 'lucide-react';
 
 interface OrderCardProps {
   order: SewingOrder;
@@ -20,6 +20,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 }) => {
   const isDelivered = order.status === 'DELIVERED';
   const isInProgress = order.status === 'IN_PROGRESS';
+  const urgency = getDeliveryUrgency(order.deliveryDate, order.status);
 
   const finalQty = isDelivered 
     ? (order.deliverQuantity || order.receiveQuantity) 
@@ -28,17 +29,20 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     ? (order.deliveryFabricKg || order.receiveFabricKg) 
     : order.receiveFabricKg;
 
+  // Đường viền màu nhận diện + Báo động nếu còn 1 ngày hoặc quá hạn
+  const baseBorder = isDelivered 
+    ? 'border-l-4 border-l-emerald-500 border-slate-200/90' 
+    : urgency.cardBorderClass 
+    ? `border-l-4 ${urgency.cardBorderClass}`
+    : isInProgress 
+    ? 'border-l-4 border-l-amber-500 border-slate-200/90' 
+    : 'border-l-4 border-l-blue-500 border-slate-200/90';
+
   return (
-    <div className={`relative overflow-hidden rounded-2xl p-3 bg-white border transition-all duration-150 shadow-xs hover:shadow-sm ${
-      isDelivered 
-        ? 'border-l-4 border-l-emerald-500 border-slate-200/90' 
-        : isInProgress 
-        ? 'border-l-4 border-l-amber-500 border-slate-200/90' 
-        : 'border-l-4 border-l-blue-500 border-slate-200/90'
-    }`}>
-      {/* Row 1: Công đoạn + Trạng thái + Thành tiền */}
+    <div className={`relative overflow-hidden rounded-2xl p-3 bg-white border transition-all duration-150 shadow-xs hover:shadow-sm ${baseBorder}`}>
+      {/* Row 1: Công đoạn + Trạng thái + Báo Động Hạn Giao + Thành tiền */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
           <h3 className="text-sm font-extrabold text-slate-900 tracking-tight truncate">
             {order.stageName}
           </h3>
@@ -58,6 +62,14 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-100 text-blue-900 shrink-0">
               <Clock className="w-2.5 h-2.5 text-blue-600" />
               ĐÃ NHẬN • CHỜ LÀM
+            </span>
+          )}
+
+          {/* BÁO ĐỘNG HẠN GIAO: Còn 1 ngày / Hôm nay / Quá hạn */}
+          {urgency.level !== 'none' && urgency.level !== 'safe' && (
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] ${urgency.badgeClass} shrink-0`}>
+              <AlertTriangle className="w-3 h-3" />
+              {urgency.badgeText}
             </span>
           )}
         </div>
@@ -132,9 +144,24 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </span>
           </div>
 
-          {/* Hàng 2 - Trái: Trạng thái đang làm / chờ làm */}
+          {/* Hàng 2 - Trái: Hẹn giao hàng hoặc tiến độ may */}
           <div className="flex items-center gap-1 min-w-0 text-[11px]">
-            {isInProgress ? (
+            {order.deliveryDate ? (
+              <span className={`flex items-center gap-1 truncate ${
+                urgency.level === 'tomorrow' ? 'text-amber-800 font-bold' :
+                urgency.level === 'today' || urgency.level === 'overdue' ? 'text-rose-800 font-bold' :
+                'text-indigo-900 font-semibold'
+              }`}>
+                <Send className={`w-3.5 h-3.5 shrink-0 ${
+                  urgency.level === 'tomorrow' ? 'text-amber-600' :
+                  urgency.level === 'today' || urgency.level === 'overdue' ? 'text-rose-600' :
+                  'text-indigo-600'
+                }`} />
+                <span>
+                  Hẹn giao: <strong>{formatDateVN(order.deliveryDate)}</strong> ({order.deliveryDayOfWeek || getDayOfWeekVN(order.deliveryDate)})
+                </span>
+              </span>
+            ) : isInProgress ? (
               <span className="flex items-center gap-1 text-amber-700 font-semibold truncate">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
                 Đang may gia công

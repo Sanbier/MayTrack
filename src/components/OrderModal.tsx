@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { SewingOrder, StagePreset, OrderStatus } from '../types';
-import { getTodayString, getDayOfWeekVN, formatVND, formatNumber, formatDateVN } from '../utils/format';
+import { getTodayString, getDayOfWeekVN, formatVND, formatNumber, formatDateVN, getDeliveryUrgency } from '../utils/format';
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { DateInputVN } from './DateInputVN';
-import { X, Check, Calendar, Layers, Package, Scale, FileText, Send, Clock } from 'lucide-react';
+import { X, Check, Calendar, Layers, Package, Scale, FileText, Send, Clock, AlertTriangle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface OrderModalProps {
@@ -30,7 +30,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   const [receiveFabricKg, setReceiveFabricKg] = useState<string>('');
   const [status, setStatus] = useState<OrderStatus>('IN_PROGRESS');
   
-  // Delivery field: để trống nếu chưa giao, điền ngày nếu đã giao
+  // Delivery field: ngày hẹn giao hàng hoặc ngày đã giao
   const [deliveryDate, setDeliveryDate] = useState<string>('');
   const [deliverQuantity, setDeliverQuantity] = useState<number>(10);
   const [deliveryFabricKg, setDeliveryFabricKg] = useState<string>('');
@@ -43,7 +43,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       setUnitPrice(editingOrder.unitPrice);
       setReceiveQuantity(editingOrder.receiveQuantity);
       setReceiveFabricKg(editingOrder.receiveFabricKg != null ? String(editingOrder.receiveFabricKg) : '');
-      setStatus(editingOrder.status === 'DELIVERED' ? 'IN_PROGRESS' : editingOrder.status);
+      setStatus(editingOrder.status);
       setDeliveryDate(editingOrder.deliveryDate || '');
       setDeliverQuantity(editingOrder.deliverQuantity ?? editingOrder.receiveQuantity);
       setDeliveryFabricKg(editingOrder.deliveryFabricKg != null ? String(editingOrder.deliveryFabricKg) : '');
@@ -55,7 +55,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       setReceiveQuantity(10);
       setReceiveFabricKg('');
       setStatus('IN_PROGRESS'); // Mặc định là Đang Làm
-      setDeliveryDate(''); // Mặc định chưa giao
+      setDeliveryDate(''); // Để trống để người dùng tự chọn ngày hẹn giao
       setDeliverQuantity(10);
       setDeliveryFabricKg('');
       setNote('');
@@ -66,22 +66,22 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
   const receiveDay = getDayOfWeekVN(receiveDate);
   const deliveryDay = deliveryDate ? getDayOfWeekVN(deliveryDate) : '';
-  const isDelivered = Boolean(deliveryDate);
+  const isDelivered = status === 'DELIVERED';
   const finalDeliveredQty = deliverQuantity || receiveQuantity;
   const liveTotalAmount = unitPrice * (isDelivered ? finalDeliveredQty : receiveQuantity);
+
+  // Tính toán báo động hạn giao
+  const urgency = getDeliveryUrgency(deliveryDate, status);
 
   const handleSelectPreset = (p: StagePreset) => {
     setStageName(p.name);
     setUnitPrice(p.defaultUnitPrice);
   };
 
-
-
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!stageName.trim()) return;
 
-    const finalStatus: OrderStatus = isDelivered ? 'DELIVERED' : status;
     const finalDeliveredNumber = isDelivered ? Number(deliverQuantity || receiveQuantity) : null;
     const finalDeliveredKg = isDelivered && deliveryFabricKg ? parseFloat(deliveryFabricKg) : null;
 
@@ -93,9 +93,9 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       unitPrice: Number(unitPrice) || 0,
       receiveQuantity: Number(receiveQuantity) || 1,
       receiveFabricKg: receiveFabricKg ? parseFloat(receiveFabricKg) : null,
-      status: finalStatus,
-      deliveryDate: isDelivered ? deliveryDate : null,
-      deliveryDayOfWeek: isDelivered ? deliveryDay : null,
+      status,
+      deliveryDate: deliveryDate || null,
+      deliveryDayOfWeek: deliveryDay || null,
       deliverQuantity: finalDeliveredNumber,
       deliveryFabricKg: finalDeliveredKg,
       totalAmount: liveTotalAmount,
@@ -145,7 +145,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 {editingOrder ? 'Chỉnh Sửa Công Đoạn May' : 'Phiếu Nhập Công Đoạn May'}
               </h3>
               <p className="text-[10px] text-slate-500">
-                Ghi nhận sản lượng & tính tiền tự động
+                Ghi nhận sản lượng & theo dõi hạn giao hàng
               </p>
             </div>
           </div>
@@ -236,7 +236,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-4">
               <label className="text-[11px] font-bold text-slate-700 mb-1 block">
-                Thứ
+                Thứ nhận
               </label>
               <div className="h-[38px] px-2.5 flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 text-center">
                 {receiveDay || '-'}
@@ -268,44 +268,40 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   ? 'bg-emerald-100/70 border-emerald-300 text-emerald-900 font-extrabold' 
                   : 'bg-slate-100 border-slate-200 text-slate-400'
               }`}>
-                {deliveryDate ? (deliveryDay || '-') : 'Chưa giao'}
+                {deliveryDate ? (deliveryDay || '-') : 'Chưa đặt'}
               </div>
             </div>
 
             <div className="col-span-8">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
-                  <Send className="w-3.5 h-3.5 text-emerald-600" />
-                  Ngày giao hàng
-                </label>
-                {deliveryDate && (
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryDate('')}
-                    className="text-[10px] text-rose-500 hover:text-rose-700 font-bold active:scale-95"
-                  >
-                    ✕ Bỏ ngày giao
-                  </button>
-                )}
-              </div>
+              <label className="text-[11px] font-bold text-emerald-800 mb-1 flex items-center gap-1">
+                <Send className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Ngày hẹn giao hàng</span>
+              </label>
 
-              {deliveryDate ? (
-                <DateInputVN
-                  value={deliveryDate}
-                  onChange={setDeliveryDate}
-                  theme="emerald"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setDeliveryDate(getTodayString())}
-                  className="w-full h-[38px] px-3 rounded-xl border border-dashed border-emerald-400 bg-emerald-50/70 hover:bg-emerald-100/70 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-98 transition-all"
-                >
-                  <Send className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>+ Điền ngày giao hàng</span>
-                </button>
-              )}
+              <DateInputVN
+                value={deliveryDate}
+                onChange={setDeliveryDate}
+                placeholder="Bấm chọn ngày hẹn giao..."
+                allowClear={true}
+                theme="emerald"
+              />
             </div>
+
+            {/* Báo động khẩn cấp nếu còn 1 ngày, hôm nay hoặc quá hạn */}
+            {deliveryDate && !isDelivered && urgency.level !== 'none' && urgency.level !== 'safe' && (
+              <div className="col-span-12">
+                <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs ${urgency.badgeClass}`}>
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>
+                    {urgency.level === 'tomorrow' 
+                      ? '⚠️ BÁO ĐỘNG: Còn đúng 1 ngày (mai giao) - Nhớ may gấp cho kịp!' 
+                      : urgency.level === 'today'
+                      ? '🚨 KHẨN CẤP: Hạn giao hàng là HÔM NAY! Phải làm cho kịp!'
+                      : `⛔ ĐÃ QUÁ HẠN GIAO ${Math.abs(urgency.diffDays || 0)} NGÀY!`}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Row 4: Số Lượng (7 cols) + Kí Vải (5 cols) */}
@@ -348,52 +344,55 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Row 5: TRẠNG THÁI TIẾN ĐỘ: Chỉ có 2 trường hợp [ Đang Làm ] và [ Chờ Làm ] */}
-          {!deliveryDate ? (
-            <div className="space-y-1.5 pt-1 border-t border-slate-100 animate-in fade-in duration-200">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
-                Trạng thái công đoạn:
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStatus('IN_PROGRESS')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border active:scale-98 ${
-                    status === 'IN_PROGRESS'
-                      ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25 ring-2 ring-amber-200'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${status === 'IN_PROGRESS' ? 'bg-white' : 'bg-amber-500'}`} />
-                  <span>Đang Làm</span>
-                </button>
+          {/* Row 5: TRẠNG THÁI TIẾN ĐỘ: 3 Lựa Chọn Trực Quan */}
+          <div className="space-y-1.5 pt-1 border-t border-slate-100">
+            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+              Trạng thái đơn hàng:
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setStatus('IN_PROGRESS')}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 border active:scale-95 ${
+                  status === 'IN_PROGRESS'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25 ring-2 ring-amber-200'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${status === 'IN_PROGRESS' ? 'bg-white' : 'bg-amber-500'}`} />
+                <span>Đang Làm</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => setStatus('PENDING')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border active:scale-98 ${
-                    status === 'PENDING'
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-2 ring-blue-200'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Clock className={`w-3.5 h-3.5 ${status === 'PENDING' ? 'text-white' : 'text-blue-500'}`} />
-                  <span>Chờ Làm</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setStatus('PENDING')}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 border active:scale-95 ${
+                  status === 'PENDING'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-2 ring-blue-200'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Clock className={`w-3.5 h-3.5 ${status === 'PENDING' ? 'text-white' : 'text-blue-500'}`} />
+                <span>Chờ Làm</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus('DELIVERED');
+                  if (!deliveryDate) setDeliveryDate(getTodayString());
+                }}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 border active:scale-95 ${
+                  status === 'DELIVERED'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-200'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Đã Giao</span>
+              </button>
             </div>
-          ) : (
-            /* Khi đã có Ngày Giao Hàng -> Hiển thị huy hiệu ĐÃ GIAO gọn gàng */
-            <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs animate-in fade-in duration-200">
-              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span>Trạng thái: Đã giao hàng</span>
-              </div>
-              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md font-mono">
-                {deliveryDay} ({formatDateVN(deliveryDate)})
-              </span>
-            </div>
-          )}
+          </div>
 
           {/* Row 6: Ghi chú thêm */}
           <div>
@@ -417,7 +416,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="flex items-center justify-between px-1">
             <div>
               <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider block">
-                {isDelivered ? 'Tiền công thực nhận (Đã giao)' : 'Tiền công dự kiến (Đã nhận)'}
+                {isDelivered ? 'Tiền công thực nhận (Đã giao)' : 'Tiền công dự kiến (Đang/Chờ may)'}
               </span>
               <span className="text-xs text-slate-500 font-mono">
                 {formatVND(unitPrice)} × {formatNumber(isDelivered ? finalDeliveredQty : receiveQuantity)} cái
@@ -443,6 +442,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center justify-center gap-1.5 ${
                 isDelivered
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
+                  : status === 'IN_PROGRESS'
+                  ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/30'
                   : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30'
               }`}
             >
@@ -451,7 +452,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 ? 'Lưu Thay Đổi' 
                 : isDelivered 
                 ? 'LƯU ĐƠN ĐÃ GIAO' 
-                : (status === 'IN_PROGRESS' ? 'LƯU ĐÃ NHẬN (ĐANG LÀM)' : 'LƯU ĐÃ NHẬN (CHỜ LÀM)')}
+                : (status === 'IN_PROGRESS' ? 'LƯU ĐANG LÀM' : 'LƯU CHỜ LÀM')}
             </button>
           </div>
         </div>

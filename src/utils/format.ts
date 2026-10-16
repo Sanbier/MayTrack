@@ -74,3 +74,88 @@ export function getYesterdayString(): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+export interface DeliveryUrgency {
+  level: 'overdue' | 'today' | 'tomorrow' | 'soon' | 'safe' | 'none';
+  diffDays: number | null;
+  label: string;
+  badgeText: string;
+  badgeClass: string;
+  cardBorderClass: string;
+}
+
+/**
+ * Tính toán mức độ khẩn cấp theo hạn giao hàng (deliveryDate)
+ * Báo động nếu còn 1 ngày (mai giao), hôm nay phải giao hoặc quá hạn
+ */
+export function getDeliveryUrgency(deliveryDate?: string | null, status?: string): DeliveryUrgency {
+  if (status === 'DELIVERED' || !deliveryDate) {
+    return {
+      level: 'none',
+      diffDays: null,
+      label: '',
+      badgeText: '',
+      badgeClass: '',
+      cardBorderClass: '',
+    };
+  }
+
+  const todayStr = getTodayString();
+  const dToday = new Date(todayStr + 'T00:00:00');
+  const dTarget = new Date(deliveryDate + 'T00:00:00');
+  const diffTime = dTarget.getTime() - dToday.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return {
+      level: 'overdue',
+      diffDays,
+      label: `Quá hạn ${Math.abs(diffDays)} ngày`,
+      badgeText: `🚨 QUÁ HẠN ${Math.abs(diffDays)}N`,
+      badgeClass: 'bg-rose-600 text-white font-extrabold animate-pulse shadow-xs',
+      cardBorderClass: 'border-l-rose-600 ring-1 ring-rose-400 bg-rose-50/15',
+    };
+  }
+
+  if (diffDays === 0) {
+    return {
+      level: 'today',
+      diffDays: 0,
+      label: 'Hôm nay phải giao gấp!',
+      badgeText: '🚨 HÔM NAY PHẢI GIAO',
+      badgeClass: 'bg-rose-500 text-white font-extrabold animate-pulse shadow-xs',
+      cardBorderClass: 'border-l-rose-500 ring-1 ring-amber-400 bg-amber-50/20',
+    };
+  }
+
+  if (diffDays === 1) {
+    return {
+      level: 'tomorrow',
+      diffDays: 1,
+      label: 'Còn 1 ngày (Mai giao)!',
+      badgeText: '⚠️ CÒN 1 NGÀY GIAO',
+      badgeClass: 'bg-amber-500 text-white font-extrabold animate-pulse shadow-xs ring-1 ring-amber-300',
+      cardBorderClass: 'border-l-amber-500 ring-2 ring-amber-400/80 bg-amber-50/20',
+    };
+  }
+
+  if (diffDays === 2) {
+    return {
+      level: 'soon',
+      diffDays: 2,
+      label: 'Còn 2 ngày giao',
+      badgeText: '⏳ Còn 2 ngày',
+      badgeClass: 'bg-amber-100 text-amber-900 font-bold border border-amber-300',
+      cardBorderClass: 'border-l-amber-400',
+    };
+  }
+
+  return {
+    level: 'safe',
+    diffDays,
+    label: `Còn ${diffDays} ngày`,
+    badgeText: `Còn ${diffDays} ngày`,
+    badgeClass: 'bg-slate-100 text-slate-700 font-medium',
+    cardBorderClass: '',
+  };
+}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatDateVN } from '../utils/format';
-import { Calendar } from 'lucide-react';
+import { Calendar, X } from 'lucide-react';
 
 interface DateInputVNProps {
   value: string; // 'YYYY-MM-DD'
@@ -8,6 +8,8 @@ interface DateInputVNProps {
   required?: boolean;
   className?: string;
   theme?: 'indigo' | 'emerald';
+  placeholder?: string;
+  allowClear?: boolean;
 }
 
 export const DateInputVN: React.FC<DateInputVNProps> = ({
@@ -16,6 +18,8 @@ export const DateInputVN: React.FC<DateInputVNProps> = ({
   required = false,
   className = '',
   theme = 'indigo',
+  placeholder = 'Chọn ngày',
+  allowClear = false,
 }) => {
   const displayFormatted = formatDateVN(value);
 
@@ -30,10 +34,31 @@ export const DateInputVN: React.FC<DateInputVNProps> = ({
       {/* Text hiển thị chuẩn Ngày / Tháng / Năm */}
       <div className="flex items-center gap-2 min-w-0 pointer-events-none">
         <Calendar className={`w-4 h-4 ${iconColor} shrink-0`} />
-        <span className="font-mono text-xs font-bold text-slate-800 tracking-wider">
-          {displayFormatted || 'Chọn ngày'}
-        </span>
+        {displayFormatted ? (
+          <span className="font-mono text-xs font-bold text-slate-800 tracking-wider">
+            {displayFormatted}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400 font-medium tracking-wide">
+            {placeholder}
+          </span>
+        )}
       </div>
+
+      {/* Nút xóa nhanh nếu có ngày */}
+      {allowClear && value ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange('');
+          }}
+          className="relative z-20 p-1 text-slate-400 hover:text-rose-500 rounded-md hover:bg-slate-100 transition-all"
+          title="Xóa ngày"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      ) : null}
 
       {/* Input ẩn chuẩn để bấm mở bộ chọn ngày native của iOS/Android/Chrome */}
       <input
@@ -41,9 +66,7 @@ export const DateInputVN: React.FC<DateInputVNProps> = ({
         required={required}
         value={value}
         onChange={e => {
-          if (e.target.value) {
-            onChange(e.target.value);
-          }
+          onChange(e.target.value || '');
         }}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
       />

@@ -10,7 +10,7 @@ import {
   getCloudUrl, fetchFromCloud, pushToCloud, 
   subscribeToCloudUpdates, CloudPayload 
 } from './utils/cloudSync';
-import { formatVND, formatNumber, formatKg, formatDateVN } from './utils/format';
+import { formatVND, formatNumber, formatKg, formatDateVN, getDeliveryUrgency } from './utils/format';
 
 import { StatCards } from './components/StatCard';
 import { OrderCard } from './components/OrderCard';
@@ -26,7 +26,7 @@ import { BottomTabBar } from './components/BottomTabBar';
 import { 
   Search, Plus, CheckCircle2, Clock, 
   TrendingUp, Scissors, ChevronRight, ChevronLeft, FileSpreadsheet, Settings, 
-  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar, Package, Layers
+  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar, Package, Layers, AlertTriangle
 } from 'lucide-react';
 
 function getCurrentMonthString(): string {
@@ -141,6 +141,15 @@ export function App() {
   const deliveredCount = useMemo(() => periodOrders.filter(o => o.status === 'DELIVERED').length, [periodOrders]);
   const inProgressCount = useMemo(() => periodOrders.filter(o => o.status === 'IN_PROGRESS').length, [periodOrders]);
   const pendingCount = useMemo(() => periodOrders.filter(o => o.status === 'PENDING').length, [periodOrders]);
+
+  // Các đơn hàng đang cần may gấp (còn 1 ngày, hôm nay hoặc quá hạn giao)
+  const urgentOrders = useMemo(() => {
+    return periodOrders.filter(o => {
+      if (o.status === 'DELIVERED' || !o.deliveryDate) return false;
+      const urgency = getDeliveryUrgency(o.deliveryDate, o.status);
+      return urgency.level === 'tomorrow' || urgency.level === 'today' || urgency.level === 'overdue';
+    });
+  }, [periodOrders]);
 
   // Handle month stepper
   const handlePrevMonth = () => {
@@ -508,6 +517,35 @@ export function App() {
         {/* TAB 1: DASHBOARD (TỔNG QUAN) */}
         {currentTab === 'dashboard' && (
           <div className="space-y-3 animate-in fade-in duration-200">
+
+            {/* BÁO ĐỘNG HẠN GIAO: Còn 1 ngày / Hôm nay / Quá hạn */}
+            {urgentOrders.length > 0 && (
+              <div 
+                onClick={() => {
+                  setStatusFilter('RECEIVED');
+                  setCurrentTab('orders');
+                }}
+                className="p-3.5 rounded-3xl bg-gradient-to-r from-amber-500 via-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/25 flex items-center justify-between cursor-pointer active:scale-98 transition-all animate-pulse"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-2xl bg-white/20 backdrop-blur-md">
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black tracking-wide uppercase">
+                      ⚠️ Báo Động: {urgentOrders.length} công đoạn cần may gấp!
+                    </h4>
+                    <p className="text-[11px] text-white/90">
+                      Có đơn hẹn giao trong hôm nay hoặc ngày mai (còn 1 ngày)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 font-bold text-xs bg-white text-rose-700 px-2.5 py-1.5 rounded-xl shadow-xs shrink-0">
+                  <span>Xem ngay</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            )}
             
             {/* Stat Cards */}
             <StatCards
