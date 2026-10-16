@@ -250,7 +250,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   >
                     {presets.map(p => (
                       <option key={p.id} value={p.name}>
-                        {p.name} ({formatVND(p.defaultUnitPrice)})
+                        {p.name}
                       </option>
                     ))}
                     {!presets.some(p => p.name === stageName) && stageName && (
