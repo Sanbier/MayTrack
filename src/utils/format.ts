@@ -8,6 +8,25 @@ export function formatNumber(val: number): string {
   return new Intl.NumberFormat('vi-VN').format(val);
 }
 
+/**
+ * Định dạng chuỗi số nhập trong ô input có dấu chấm phân cách hàng nghìn (VD: "700000" -> "700.000")
+ */
+export function formatInputDots(val: string | number): string {
+  if (val === '' || val === null || val === undefined) return '';
+  const digits = String(val).replace(/\D/g, '');
+  if (!digits) return '';
+  return new Intl.NumberFormat('vi-VN').format(Number(digits));
+}
+
+/**
+ * Lọc lấy chuỗi số thuần từ ô input có dấu chấm (VD: "700.000" -> "700000")
+ */
+export function parseInputDots(val: string): string {
+  const digits = val.replace(/\D/g, '');
+  if (!digits) return '';
+  return String(Number(digits));
+}
+
 export function formatKg(val: number | null | undefined): string {
   if (val === null || val === undefined || isNaN(val) || val === 0) return '-';
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(val)} kg`;

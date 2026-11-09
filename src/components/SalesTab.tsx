@@ -4,6 +4,8 @@ import { SalesItem, SalesBillRecord } from '../types';
 import {
   formatVND,
   formatNumber,
+  formatInputDots,
+  parseInputDots,
   formatDateVN,
   getTodayString,
   getDayOfWeekVN,
@@ -1363,11 +1365,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                       : 'Số lượng nhập *'}
                   </label>
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={importQty}
-                    onChange={e => setImportQty(e.target.value)}
+                    value={formatInputDots(importQty)}
+                    onChange={e => setImportQty(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-black font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                 </div>
@@ -1378,10 +1380,10 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                       Tổng SL đã bán
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      value={soldQty}
-                      onChange={e => setSoldQty(e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatInputDots(soldQty)}
+                      onChange={e => setSoldQty(parseInputDots(e.target.value))}
                       className="w-full px-3 py-2 rounded-xl bg-orange-50/70 border border-orange-200 text-xs font-black font-mono text-orange-800 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
                     />
                   </div>
@@ -1403,12 +1405,12 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Giá nhập (Vốn / 1 cái) *
                   </label>
                   <input
-                    type="number"
-                    step="500"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    placeholder="VD: 50000"
-                    value={importPrice}
-                    onChange={e => setImportPrice(e.target.value)}
+                    placeholder="VD: 50.000"
+                    value={formatInputDots(importPrice)}
+                    onChange={e => setImportPrice(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold font-mono text-slate-800 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                 </div>
@@ -1418,12 +1420,12 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Giá bán lẻ (1 cái) *
                   </label>
                   <input
-                    type="number"
-                    step="500"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    placeholder="VD: 70000"
-                    value={sellPrice}
-                    onChange={e => setSellPrice(e.target.value)}
+                    placeholder="VD: 70.000"
+                    value={formatInputDots(sellPrice)}
+                    onChange={e => setSellPrice(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs font-bold font-mono text-emerald-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                 </div>
@@ -1574,11 +1576,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Số lượng khách mua *
                   </label>
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={saleQty}
-                    onChange={e => setSaleQty(e.target.value)}
+                    value={formatInputDots(saleQty)}
+                    onChange={e => setSaleQty(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-black font-mono text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                   <div className="flex gap-1 mt-1">
@@ -1604,11 +1606,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Giá bán thực tế (1 cái) *
                   </label>
                   <input
-                    type="number"
-                    step="500"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={saleUnitPrice}
-                    onChange={e => setSaleUnitPrice(e.target.value)}
+                    value={formatInputDots(saleUnitPrice)}
+                    onChange={e => setSaleUnitPrice(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-black font-mono text-emerald-700 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                 </div>
@@ -1620,12 +1622,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                   Giảm giá (Trừ vào tiền bán thực tế)
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  placeholder="Nhập số tiền giảm (VD: 5000, 10000...)"
-                  value={saleDiscount}
-                  onChange={e => setSaleDiscount(e.target.value)}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Nhập số tiền giảm (VD: 5.000, 10.000...)"
+                  value={formatInputDots(saleDiscount)}
+                  onChange={e => setSaleDiscount(parseInputDots(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl bg-amber-50/60 border border-amber-200 text-xs font-black font-mono text-amber-800 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
                 <div className="flex gap-1 mt-1">
@@ -1640,7 +1641,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                           : 'bg-slate-100 text-slate-600 border-slate-200'
                       }`}
                     >
-                      {d === 0 ? 'Không giảm' : `-${d / 1000}k`}
+                      {d === 0 ? 'Không giảm' : `-${formatNumber(d)}`}
                     </button>
                   ))}
                 </div>
@@ -1695,12 +1696,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                           Tiền khách đưa:
                         </label>
                         <input
-                          type="number"
-                          min="0"
-                          step="1000"
+                          type="text"
+                          inputMode="numeric"
                           placeholder="Nhập tiền khách đưa..."
-                          value={customerPaid}
-                          onChange={e => setCustomerPaid(e.target.value)}
+                          value={formatInputDots(customerPaid)}
+                          onChange={e => setCustomerPaid(parseInputDots(e.target.value))}
                           className="w-40 px-2.5 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-black font-mono text-right placeholder:text-slate-400 placeholder:font-normal outline-none focus:ring-2 focus:ring-amber-300"
                         />
                       </div>
@@ -1708,9 +1708,9 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                       <div className="flex gap-1">
                         {[
                           { label: 'Đủ tiền', val: currentTotal },
-                          { label: '100k', val: 100000 },
-                          { label: '200k', val: 200000 },
-                          { label: '500k', val: 500000 },
+                          { label: '100.000', val: 100000 },
+                          { label: '200.000', val: 200000 },
+                          { label: '500.000', val: 500000 },
                         ].map(btn => (
                           <button
                             key={btn.label}
@@ -1804,11 +1804,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                   Số lượng nhập thêm đợt này *
                 </label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={restockAddQty}
-                  onChange={e => setRestockAddQty(e.target.value)}
+                  value={formatInputDots(restockAddQty)}
+                  onChange={e => setRestockAddQty(parseInputDots(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-black font-mono text-orange-700 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
                 />
                 <span className="text-[10px] text-slate-500 block mt-1">
@@ -1830,11 +1830,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Giá nhập (1 cái)
                   </label>
                   <input
-                    type="number"
-                    step="500"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={restockImportPrice}
-                    onChange={e => setRestockImportPrice(e.target.value)}
+                    value={formatInputDots(restockImportPrice)}
+                    onChange={e => setRestockImportPrice(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold font-mono text-slate-800"
                   />
                 </div>
@@ -1843,11 +1843,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Giá bán (1 cái)
                   </label>
                   <input
-                    type="number"
-                    step="500"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={restockSellPrice}
-                    onChange={e => setRestockSellPrice(e.target.value)}
+                    value={formatInputDots(restockSellPrice)}
+                    onChange={e => setRestockSellPrice(parseInputDots(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold font-mono text-emerald-700"
                   />
                 </div>
