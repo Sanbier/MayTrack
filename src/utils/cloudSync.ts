@@ -1,4 +1,4 @@
-import { SewingOrder, StagePreset, WorkshopSettings } from '../types';
+import { SewingOrder, StagePreset, WorkshopSettings, SalesItem } from '../types';
 
 export const DEFAULT_CLOUD_URL = 'https://maytrack-default-rtdb.asia-southeast1.firebasedatabase.app';
 const CLOUD_URL_KEY = 'maytrack_cloud_db_url_v1';
@@ -8,6 +8,7 @@ export interface CloudPayload {
   orders: SewingOrder[];
   presets: StagePreset[];
   settings: WorkshopSettings;
+  salesItems?: SalesItem[];
   lastUpdated: number;
   deviceId?: string;
 }
@@ -85,6 +86,7 @@ export async function fetchFromCloud(baseUrl?: string): Promise<CloudPayload | n
         orders: Array.isArray(data.orders) ? data.orders : [],
         presets: Array.isArray(data.presets) ? data.presets : [],
         settings: data.settings || {},
+        salesItems: Array.isArray(data.salesItems) ? data.salesItems : undefined,
         lastUpdated: data.lastUpdated || Date.now(),
       } as CloudPayload;
     }
@@ -102,7 +104,8 @@ export async function pushToCloud(
   orders: SewingOrder[],
   presets: StagePreset[],
   settings: WorkshopSettings,
-  baseUrl?: string
+  baseUrl?: string,
+  salesItems?: SalesItem[]
 ): Promise<number> {
   const url = baseUrl || getCloudUrl();
   if (!url) return 0;
@@ -113,6 +116,7 @@ export async function pushToCloud(
     orders,
     presets,
     settings,
+    salesItems,
     lastUpdated: now,
     deviceId: getDeviceId(),
   };
@@ -167,6 +171,7 @@ export function subscribeToCloudUpdates(
           onRemoteChange({
             ...payload,
             orders: incomingOrders,
+            salesItems: Array.isArray(payload.salesItems) ? payload.salesItems : undefined,
           });
         } else if (parsed.path !== '/') {
           const fresh = await fetchFromCloud(baseUrl);

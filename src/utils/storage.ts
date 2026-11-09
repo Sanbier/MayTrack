@@ -1,4 +1,4 @@
-import { SewingOrder, StagePreset, WorkshopSettings } from '../types';
+import { SewingOrder, StagePreset, WorkshopSettings, SalesItem } from '../types';
 import { formatDateVN, formatNumber } from './format';
 
 export const DEFAULT_PRESETS: StagePreset[] = [
@@ -34,6 +34,40 @@ export const INITIAL_ORDERS: SewingOrder[] = [
   }
 ];
 
+// Dữ liệu mẫu khởi tạo từ Google Sheet Trang tính19 (gid=193054120)
+export const INITIAL_SALES_ITEMS: SalesItem[] = [
+  {
+    id: 'sales-1',
+    productName: 'Hoa 1tia 6 cánh',
+    importQty: 20,
+    importPrice: 50000,
+    sellPrice: 70000,
+    soldQty: 1,
+    createdAt: Date.now() - 3000,
+    updatedAt: Date.now() - 3000,
+  },
+  {
+    id: 'sales-2',
+    productName: 'xoài',
+    importQty: 30,
+    importPrice: 23000,
+    sellPrice: 35000,
+    soldQty: 0,
+    createdAt: Date.now() - 2000,
+    updatedAt: Date.now() - 2000,
+  },
+  {
+    id: 'sales-3',
+    productName: 'hoa 3',
+    importQty: 3,
+    importPrice: 160000,
+    sellPrice: 190000,
+    soldQty: 0,
+    createdAt: Date.now() - 1000,
+    updatedAt: Date.now() - 1000,
+  },
+];
+
 export const DEFAULT_SETTINGS: WorkshopSettings = {
   workshopName: 'Xưởng May Gia Công',
   ownerName: 'Sanbier',
@@ -46,6 +80,7 @@ const STORAGE_KEYS = {
   ORDERS: 'maytrack_orders_v1',
   PRESETS: 'maytrack_presets_v1',
   SETTINGS: 'maytrack_settings_v1',
+  SALES_ITEMS: 'maytrack_sales_v1',
 };
 
 export function loadOrders(): SewingOrder[] {
@@ -110,8 +145,31 @@ export function saveSettings(settings: WorkshopSettings): void {
   }
 }
 
+export function loadSalesItems(): SalesItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SALES_ITEMS);
+    if (raw !== null && raw !== undefined) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+    saveSalesItems(INITIAL_SALES_ITEMS);
+    return INITIAL_SALES_ITEMS;
+  } catch (e) {
+    console.error('Failed to load sales items', e);
+    return INITIAL_SALES_ITEMS;
+  }
+}
+
+export function saveSalesItems(items: SalesItem[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SALES_ITEMS, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save sales items', e);
+  }
+}
+
 /**
- * Xuất dữ liệu ra file CSV tương thích 100% cấu trúc Google Sheet
+ * Xuất dữ liệu công đoạn may ra file CSV tương thích 100% cấu trúc Google Sheet
  */
 export function exportToCSV(orders: SewingOrder[]): void {
   const header1 = 'CÔNG ĐOẠN NHẬN,,,,,,,,,CÔNG ĐOẠN GIAO,,,,,';
@@ -154,14 +212,55 @@ export function exportToCSV(orders: SewingOrder[]): void {
   document.body.removeChild(link);
 }
 
-export function exportJSONBackup(orders: SewingOrder[], presets: StagePreset[], settings: WorkshopSettings): void {
+/**
+ * Xuất dữ liệu Bán Hàng ra file CSV khớp 100% cấu trúc Trang tính19 (NHẬP HÀNG BÁN & BILL BÁN)
+ */
+export function exportSalesToCSV(items: SalesItem[]): void {
+  const header1 = 'NHẬP HÀNG BÁN ,,,,,,BILL BÁN ,,,,';
+  const header2 = 'TÊN SẢN PHẨM,SL NHẬP,giá nhập,GIÁ BÁN ,LỢI NHUẬN ,,TÊN SẢN PHẨM,SL ĐÃ BÁN ,SL TỒN KHO,GIÁ BÁN,CẢNH BÁO ';
+
+  const rows = items.map(item => {
+    const name = `"${item.productName.replace(/"/g, '""')}"`;
+    const unitProfit = (item.sellPrice || 0) - (item.importPrice || 0);
+    const sold = item.soldQty || 0;
+    const stock = (item.importQty || 0) - sold;
+    const warning = stock <= 0
+      ? `⚠️CẢNH BÁO HẾT HÀNG ${formatNumber(Math.abs(stock))}`
+      : 'CÒN TỒN ';
+
+    return `${name},${item.importQty},${item.importPrice},${item.sellPrice},${unitProfit},,${name},${sold > 0 ? sold : ''},${sold > 0 ? stock : stock},${sold > 0 ? item.sellPrice : ''},${warning}`;
+  });
+
+  const totalUnitProfit = items.reduce((sum, item) => sum + ((item.sellPrice || 0) - (item.importPrice || 0)), 0);
+  const totalRealizedProfit = items.reduce((sum, item) => sum + ((item.soldQty || 0) * ((item.sellPrice || 0) - (item.importPrice || 0))), 0);
+  const totalRow1 = `TỔNG LỢI NHUẬN / ĐV,,,,${totalUnitProfit},,,,,,`;
+  const totalRow2 = `TỔNG LÃI THỰC ĐÃ BÁN,,,,${totalRealizedProfit},,,,,,`;
+
+  const csvContent = '\uFEFF' + [header1, header2, ...rows, totalRow1, totalRow2].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `MayTrack_BanHang_TrangTinh19_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+export function exportJSONBackup(
+  orders: SewingOrder[],
+  presets: StagePreset[],
+  settings: WorkshopSettings,
+  salesItems?: SalesItem[]
+): void {
   const data = {
     appName: 'MayTrack',
-    version: '1.0.0',
+    version: '1.1.0',
     exportedAt: new Date().toISOString(),
     orders,
     presets,
     settings,
+    salesItems: salesItems || loadSalesItems(),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

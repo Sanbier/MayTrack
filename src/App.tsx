@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { SewingOrder, StagePreset, WorkshopSettings, TabType, OrderStatus } from './types';
+import { SewingOrder, StagePreset, WorkshopSettings, TabType, OrderStatus, SalesItem } from './types';
 import { 
   loadOrders, saveOrders, 
   loadPresets, savePresets, 
   loadSettings, saveSettings, 
-  INITIAL_ORDERS, DEFAULT_PRESETS, DEFAULT_SETTINGS 
+  loadSalesItems, saveSalesItems,
+  INITIAL_ORDERS, DEFAULT_PRESETS, DEFAULT_SETTINGS, INITIAL_SALES_ITEMS 
 } from './utils/storage';
 import { 
   getCloudUrl, fetchFromCloud, pushToCloud, 
@@ -23,11 +24,12 @@ import { SettingsModal } from './components/SettingsModal';
 import { MonthDaysModal } from './components/MonthDaysModal';
 import { PayrollClosingModal } from './components/PayrollClosingModal';
 import { BottomTabBar } from './components/BottomTabBar';
+import { SalesTab } from './components/SalesTab';
 
 import { 
   Search, Plus, CheckCircle2, Clock, Banknote, 
   TrendingUp, Scissors, ChevronRight, ChevronLeft, FileSpreadsheet, Settings, 
-  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar, Package, Layers, AlertTriangle
+  Cloud, CloudLightning, RefreshCw, ArrowDownUp, Calendar, Package, Layers, AlertTriangle, ShoppingBag
 } from 'lucide-react';
 
 function getCurrentMonthString(): string {
@@ -66,6 +68,7 @@ export function App() {
   const [orders, setOrders] = useState<SewingOrder[]>(loadOrders);
   const [presets, setPresets] = useState<StagePreset[]>(loadPresets);
   const [settings, setSettings] = useState<WorkshopSettings>(loadSettings);
+  const [salesItems, setSalesItems] = useState<SalesItem[]>(loadSalesItems);
 
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,11 +90,13 @@ export function App() {
   const touchStartY = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (currentTab === 'sales') return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (currentTab === 'sales') return;
     if (touchStartX.current === null || touchStartY.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
@@ -121,6 +126,7 @@ export function App() {
 
   // Modals state
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
+  const [isSalesAddModalOpen, setSalesAddModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<SewingOrder | null>(null);
   const [quickDeliverOrder, setQuickDeliverOrder] = useState<SewingOrder | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<SewingOrder | null>(null);
@@ -186,6 +192,10 @@ export function App() {
     saveSettings(settings);
   }, [settings]);
 
+  useEffect(() => {
+    saveSalesItems(salesItems);
+  }, [salesItems]);
+
   // Handle incoming cloud payload
   const applyCloudPayload = useCallback((payload: CloudPayload) => {
     isRemoteUpdating.current = true;
@@ -200,6 +210,10 @@ export function App() {
     if (payload.settings && typeof payload.settings === 'object' && Object.keys(payload.settings).length > 0) {
       setSettings(payload.settings);
       saveSettings(payload.settings);
+    }
+    if (payload.salesItems && Array.isArray(payload.salesItems)) {
+      setSalesItems(payload.salesItems);
+      saveSalesItems(payload.salesItems);
     }
     setCloudConnected(true);
     setTimeout(() => {
@@ -217,7 +231,7 @@ export function App() {
     const timeout = setTimeout(async () => {
       try {
         setIsCloudSyncing(true);
-        await pushToCloud(orders, presets, settings, url);
+        await pushToCloud(orders, presets, settings, url, salesItems);
         setCloudConnected(true);
       } catch (err) {
         console.warn('Auto-sync push failed, will retry later');
@@ -227,7 +241,7 @@ export function App() {
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [orders, presets, settings]);
+  }, [orders, presets, settings, salesItems]);
 
   // Cloud initial fetch & SSE real-time listener
   useEffect(() => {
@@ -380,7 +394,7 @@ export function App() {
       if (url) {
         setIsCloudSyncing(true);
         try {
-          await pushToCloud(nextOrders, presets, settings, url);
+          await pushToCloud(nextOrders, presets, settings, url, salesItems);
           setCloudConnected(true);
         } catch (e) {
           console.error('Delete sync failed:', e);
@@ -396,6 +410,10 @@ export function App() {
   };
 
   const handleOpenAddModal = () => {
+    if (currentTab === 'sales') {
+      setSalesAddModalOpen(true);
+      return;
+    }
     setEditingOrder(null);
     setOrderModalOpen(true);
   };
@@ -409,6 +427,7 @@ export function App() {
     setOrders(INITIAL_ORDERS);
     setPresets(DEFAULT_PRESETS);
     setSettings(DEFAULT_SETTINGS);
+    setSalesItems(INITIAL_SALES_ITEMS);
   };
 
 
@@ -432,56 +451,70 @@ export function App() {
         >
           {/* Main Container */}
           <main className="w-full">
-        {/* Clean Header Bar: Month Stepper + All Toggle + Icons */}
+        {/* Clean Header Bar: Month Stepper (or Sales Header) + Quick Action Icons */}
         <div className="flex items-center justify-between gap-1.5 mb-2.5">
-          {/* Month Stepper Navigator */}
-          <div className="flex items-center bg-white/80 border border-slate-200/80 rounded-2xl p-0.5 shadow-sm">
-            <button
-              onClick={handlePrevMonth}
-              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 active:scale-95 transition-all"
-              title="Tháng trước"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+          {currentTab === 'sales' ? (
+            <div className="flex items-center gap-2 bg-white/85 border border-orange-200/80 rounded-2xl px-3 py-1.5 shadow-xs">
+              <ShoppingBag className="w-4 h-4 text-orange-600 shrink-0" />
+              <div className="leading-tight">
+                <span className="font-black text-xs text-slate-900 block">Quản Lý Bán Hàng</span>
+                <span className="text-[10px] text-orange-600 font-bold block">
+                  Nhập hàng bán & Bill bán (Trang tính19)
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Month Stepper Navigator */}
+              <div className="flex items-center bg-white/80 border border-slate-200/80 rounded-2xl p-0.5 shadow-sm">
+                <button
+                  onClick={handlePrevMonth}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 active:scale-95 transition-all"
+                  title="Tháng trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-            <button
-              onClick={() => setIsMonthPickerOpen(true)}
-              className="px-2 py-0.5 text-xs font-bold text-slate-800 hover:text-indigo-600 flex items-center gap-1.5 active:scale-95 transition-all"
-              title="Bấm để chọn tháng & ngày"
-            >
-              <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-              {selectedDate ? (
-                <span>Ngày {formatDateVN(selectedDate)}</span>
-              ) : periodInfo ? (
-                <div className="text-left leading-tight">
-                  <span className="font-extrabold block text-xs">{periodInfo.label}</span>
-                  <span className="text-[10px] text-indigo-600 font-bold block">{periodInfo.shortRangeText}</span>
-                </div>
-              ) : (
-                <span>Toàn bộ</span>
-              )}
-            </button>
+                <button
+                  onClick={() => setIsMonthPickerOpen(true)}
+                  className="px-2 py-0.5 text-xs font-bold text-slate-800 hover:text-indigo-600 flex items-center gap-1.5 active:scale-95 transition-all"
+                  title="Bấm để chọn tháng & ngày"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  {selectedDate ? (
+                    <span>Ngày {formatDateVN(selectedDate)}</span>
+                  ) : periodInfo ? (
+                    <div className="text-left leading-tight">
+                      <span className="font-extrabold block text-xs">{periodInfo.label}</span>
+                      <span className="text-[10px] text-indigo-600 font-bold block">{periodInfo.shortRangeText}</span>
+                    </div>
+                  ) : (
+                    <span>Toàn bộ</span>
+                  )}
+                </button>
 
-            <button
-              onClick={handleNextMonth}
-              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 active:scale-95 transition-all"
-              title="Tháng sau"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+                <button
+                  onClick={handleNextMonth}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 active:scale-95 transition-all"
+                  title="Tháng sau"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
 
-          {/* Quick "Toàn bộ" Toggle */}
-          <button
-            onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? getCurrentMonthString() : 'ALL')}
-            className={`px-3 py-1.5 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
-              selectedMonth === 'ALL'
-                ? 'bg-slate-900 text-white'
-                : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200/80'
-            }`}
-          >
-            Tất cả
-          </button>
+              {/* Quick "Toàn bộ" Toggle */}
+              <button
+                onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? getCurrentMonthString() : 'ALL')}
+                className={`px-3 py-1.5 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
+                  selectedMonth === 'ALL'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200/80'
+                }`}
+              >
+                Tất cả
+              </button>
+            </>
+          )}
 
           {/* Quick Action Icons: Cloud Sync Indicator + Export & Settings */}
           <div className="flex items-center gap-1 shrink-0 ml-auto">
@@ -1017,6 +1050,17 @@ export function App() {
               Chỉnh sửa danh mục bảng giá
             </button>
           </div>
+        )}
+
+        {/* TAB 5: BÁN HÀNG (ĐỘC LẬP THEO TRANG TÍNH 19) */}
+        {currentTab === 'sales' && (
+          <SalesTab
+            items={salesItems}
+            onSaveItems={setSalesItems}
+            isAddModalOpen={isSalesAddModalOpen}
+            onCloseAddModal={() => setSalesAddModalOpen(false)}
+            onOpenAddModal={() => setSalesAddModalOpen(true)}
+          />
         )}
       </main>
         </div>
