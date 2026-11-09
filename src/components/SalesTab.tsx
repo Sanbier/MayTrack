@@ -789,7 +789,6 @@ export const SalesTab: React.FC<SalesTabProps> = ({
           {/* Danh sách Thẻ Mặt Hàng (Thiết kế chuẩn OrderCard của MayTrack) */}
           <div className="space-y-2.5 pt-0.5">
             {filteredItems.map(item => {
-              const unitProfit = (item.sellPrice || 0) - (item.importPrice || 0);
               const sold = item.soldQty || 0;
               const stock = (item.importQty || 0) - sold;
               const isOut = stock <= 0;
@@ -825,7 +824,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Hàng 2: Lưới thông tin SL hiện tại - Đã bán/Tồn kho - Lợi nhuận/1 cái */}
+                  {/* Hàng 2: Lưới thông tin SL hiện tại - Đã bán/Tồn kho - Ngày nhập */}
                   <div className="grid grid-cols-3 gap-1.5 my-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
                     <div>
                       <span className="text-[10px] text-slate-400 font-semibold block">
@@ -851,26 +850,18 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
                     <div>
                       <span className="text-[10px] text-slate-400 font-semibold block">
-                        Lợi nhuận / 1 cái
+                        Ngày nhập
                       </span>
-                      <strong className="text-xs font-mono font-black text-amber-700">
-                        +{formatVND(unitProfit)}
+                      <strong className="text-xs font-mono font-extrabold text-slate-800">
+                        {item.importDate ? formatDateVN(item.importDate) : '-'}
                       </strong>
                     </div>
                   </div>
 
-                  {/* Ghi chú & Ngày nhập nếu có */}
-                  {(item.note || item.importDate) && (
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2 px-0.5">
-                      {item.importDate ? (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          Nhập: {formatDateVN(item.importDate)}
-                        </span>
-                      ) : (
-                        <span />
-                      )}
-                      {item.note && <span className="italic truncate max-w-[60%]">{item.note}</span>}
+                  {/* Ghi chú nếu có */}
+                  {item.note && (
+                    <div className="text-[11px] text-slate-500 mb-2 px-0.5 italic truncate">
+                      {item.note}
                     </div>
                   )}
 
