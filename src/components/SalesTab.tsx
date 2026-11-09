@@ -14,7 +14,6 @@ import { DateInputVN } from './DateInputVN';
 import confetti from 'canvas-confetti';
 import {
   ShoppingBag,
-  Plus,
   Search,
   Edit3,
   Trash2,
@@ -31,10 +30,7 @@ import {
   Calendar,
   Tag,
   ShoppingCart,
-  ArrowUpRight,
   Undo2,
-  Layers,
-  Sparkles,
   ChevronDown,
 } from 'lucide-react';
 
@@ -58,7 +54,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
   // 3 Tab con giống luồng Sổ Công Đoạn: 1. Kho Hàng Nhập | 2. Bill Đã Bán | 3. Báo Cáo Lãi
   const [subTab, setSubTab] = useState<'inventory' | 'bills' | 'report'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
-  const [stockFilter, setStockFilter] = useState<'ALL' | 'IN_STOCK' | 'OUT_OF_STOCK'>('ALL');
+  const [stockFilter, setStockFilter] = useState<'IN_STOCK' | 'OUT_OF_STOCK'>('IN_STOCK');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
   // State cho Modal Nhập Hàng Mới / Sửa Mặt Hàng
@@ -127,12 +123,6 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     });
     return Array.from(set);
   }, [items]);
-
-  // Mở Modal Tạo Mới
-  const handleOpenCreateModal = () => {
-    setEditingItem(null);
-    onOpenAddModal();
-  };
 
   // Mở Modal Sửa Mặt Hàng
   const handleOpenEditModal = (item: SalesItem) => {
@@ -558,28 +548,17 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
   return (
     <div className="space-y-3 animate-in fade-in duration-200">
-      {/* BANNER TỔNG QUAN BÁN HÀNG + NÚT NHẬP MẶT HÀNG MỚI */}
+      {/* BANNER TỔNG QUAN BÁN HÀNG */}
       <div className="p-3.5 rounded-3xl bg-gradient-to-br from-orange-600 via-amber-600 to-rose-600 text-white shadow-lg shadow-orange-600/20 relative overflow-hidden">
         <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/15 blur-xl pointer-events-none" />
 
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-orange-100 block">
-              Lợi nhuận thực thu (Đã bán {formatNumber(summary.totalSoldQty)} cái)
-            </span>
-            <div className="text-2xl font-black font-mono tracking-tight text-white">
-              +{formatVND(summary.totalRealizedProfit)}
-            </div>
+        <div className="mb-3">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-orange-100 block">
+            Lợi nhuận thực thu (Đã bán {formatNumber(summary.totalSoldQty)} cái)
+          </span>
+          <div className="text-2xl font-black font-mono tracking-tight text-white">
+            +{formatVND(summary.totalRealizedProfit)}
           </div>
-
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="px-3 py-2 rounded-2xl bg-white text-orange-700 text-xs font-black shadow-md active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Nhập Hàng Mới</span>
-          </button>
         </div>
 
         {/* 3 Ô Thống Kê Nhanh: Doanh Thu - Vốn Nhập - Tồn Kho */}
@@ -690,27 +669,16 @@ export const SalesTab: React.FC<SalesTabProps> = ({
       {/* ================================================================= */}
       {subTab === 'inventory' && (
         <div className="space-y-2.5">
-          {/* Ô Tìm kiếm + Nút thêm mặt hàng mới */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
-              <input
-                type="text"
-                placeholder="Tìm tên sản phẩm, mục hàng, ghi chú..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-2xl bg-white/85 border border-slate-200/80 text-xs font-medium text-slate-800 shadow-xs focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              className="px-3 py-2 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Thêm mục mới</span>
-            </button>
+          {/* Ô Tìm kiếm */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+            <input
+              type="text"
+              placeholder="Tìm tên sản phẩm, ghi chú..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-2xl bg-white/85 border border-slate-200/80 text-xs font-medium text-slate-800 shadow-xs focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
+            />
           </div>
 
           {/* Lọc theo Mục hàng (Category) nếu người dùng có phân loại */}
@@ -745,23 +713,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
             </div>
           )}
 
-          {/* Bộ lọc phụ: Còn tồn / Hết hàng / Tất cả */}
+          {/* Bộ lọc phụ: Còn tồn / Hết hàng */}
           <div className="flex items-center gap-1 px-1.5 py-1 bg-orange-50/90 rounded-xl border border-orange-100 text-[11px] font-bold">
             <span className="text-[10px] text-orange-950/70 pl-1 uppercase tracking-wide shrink-0">
               Kho:
             </span>
-
-            <button
-              type="button"
-              onClick={() => setStockFilter('ALL')}
-              className={`px-2.5 py-0.5 rounded-lg transition-all ${
-                stockFilter === 'ALL'
-                  ? 'bg-orange-600 text-white shadow-2xs'
-                  : 'bg-white/80 text-slate-700 hover:bg-white'
-              }`}
-            >
-              Tất cả ({items.length})
-            </button>
 
             <button
               type="button"
@@ -797,7 +753,6 @@ export const SalesTab: React.FC<SalesTabProps> = ({
               const sold = item.soldQty || 0;
               const stock = (item.importQty || 0) - sold;
               const isOut = stock <= 0;
-              const realizedProfit = sold * unitProfit;
 
               const borderStyle = isOut
                 ? 'border-l-4 border-l-rose-600 ring-2 ring-rose-300 bg-rose-50/10 border-slate-200'
@@ -808,8 +763,8 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                   key={item.id}
                   className={`relative overflow-hidden rounded-2xl p-3 bg-white border transition-all duration-150 shadow-xs hover:shadow-sm ${borderStyle}`}
                 >
-                  {/* Hàng 1: Tên Sản Phẩm + Mục + Trạng Thái Tồn Kho + Giá Bán */}
-                  <div className="flex items-start justify-between gap-2">
+                  {/* Hàng 1: Tên Sản Phẩm */}
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
                       <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
                         {item.productName}
@@ -821,41 +776,24 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                         </span>
                       )}
 
-                      {isOut ? (
+                      {isOut && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-600 text-white animate-pulse">
                           <AlertTriangle className="w-3 h-3" />
                           ⚠️ HẾT HÀNG {stock < 0 ? `(Âm ${formatNumber(Math.abs(stock))})` : ''}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          CÒN TỒN: {formatNumber(stock)}
-                        </span>
                       )}
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">
-                        Giá bán lẻ
-                      </span>
-                      <span className="text-sm font-black font-mono text-orange-600">
-                        {formatVND(item.sellPrice)}
-                      </span>
                     </div>
                   </div>
 
-                  {/* Hàng 2: Lưới thông tin Nhập - Bán - Tồn - Lợi nhuận */}
+                  {/* Hàng 2: Lưới thông tin SL hiện tại - Đã bán/Tồn kho - Lợi nhuận/1 cái */}
                   <div className="grid grid-cols-3 gap-1.5 my-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
                     <div>
                       <span className="text-[10px] text-slate-400 font-semibold block">
-                        SL Nhập / Giá vốn
+                        SL hiện tại
                       </span>
                       <strong className="text-xs font-mono font-extrabold text-slate-800">
                         {formatNumber(item.importQty)} cái
                       </strong>
-                      <span className="text-[10px] font-mono text-slate-500 block">
-                        Vốn: {formatVND(item.importPrice)}
-                      </span>
                     </div>
 
                     <div className="border-x border-slate-200/80 px-1">
@@ -869,9 +807,6 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                           {formatNumber(stock)} tồn
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-emerald-700 font-bold block">
-                        Đã lãi: +{formatVND(realizedProfit)}
-                      </span>
                     </div>
 
                     <div>
@@ -881,9 +816,6 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                       <strong className="text-xs font-mono font-black text-amber-700">
                         +{formatVND(unitProfit)}
                       </strong>
-                      <span className="text-[10px] text-slate-400 block">
-                        (= Bán − Nhập)
-                      </span>
                     </div>
                   </div>
 
@@ -904,14 +836,14 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
                   {/* Hàng 3: Các nút hành động 1 chạm giống OrderCard */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                    {/* Nút chính 1: Bấm Bán Hàng / Lên Bill */}
+                    {/* Nút chính 1: Bấm Bán Hàng */}
                     <button
                       type="button"
                       onClick={() => handleOpenSellModal(item)}
                       className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
-                      <span>Bán Hàng / Lên Bill</span>
+                      <span>Bán Hàng</span>
                     </button>
 
                     {/* Nút 2: Nhập thêm hàng vào kho cho mục này */}
@@ -962,17 +894,9 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                       : 'Không tìm thấy mặt hàng nào phù hợp'}
                   </h4>
                   <p className="text-xs text-slate-500 mt-1">
-                    Bấm nút <strong>+ Nhập Hàng Mới</strong> bên dưới hoặc dấu <strong>(+)</strong> ở thanh dưới cùng để thêm mục sản phẩm mới về bán.
+                    Bấm dấu <strong>(+)</strong> ở giữa thanh điều hướng dưới cùng để nhập mặt hàng mới.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenCreateModal}
-                  className="px-4 py-2.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold shadow-md shadow-orange-600/20 active:scale-95 transition-all inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>Nhập Mặt Hàng Đầu Tiên</span>
-                </button>
               </div>
             )}
           </div>
@@ -1085,7 +1009,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                 <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
                 <h4 className="text-xs font-bold text-slate-700">Chưa có Bill bán hàng nào</h4>
                 <p className="text-[11px] text-slate-400">
-                  Ở mục <strong>1. Kho Hàng</strong>, hãy bấm nút <strong>Bán Hàng / Lên Bill</strong> trên sản phẩm khi có khách mua.
+                  Ở mục <strong>1. Kho Hàng</strong>, hãy bấm nút <strong>Bán Hàng</strong> trên sản phẩm khi có khách mua.
                 </p>
               </div>
             )}
