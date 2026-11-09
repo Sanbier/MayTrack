@@ -76,6 +76,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
   const [saleQty, setSaleQty] = useState<string>('1');
   const [saleUnitPrice, setSaleUnitPrice] = useState<string>('');
   const [saleDiscount, setSaleDiscount] = useState<string>('');
+  const [customerPaid, setCustomerPaid] = useState<string>('');
   const [customerNote, setCustomerNote] = useState('');
 
   // State cho Modal Nhập Thêm Hàng Nhanh (Restock 1 chạm)
@@ -292,6 +293,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     setSaleQty('1');
     setSaleUnitPrice(String(item.sellPrice));
     setSaleDiscount('');
+    setCustomerPaid('');
     setCustomerNote('');
   };
 
@@ -1658,44 +1660,91 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                 />
               </div>
 
-              {/* Banner Tổng Tiền Bill & Tiền Lời */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between shadow-md shadow-emerald-600/20">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-100 block">
-                    Thành tiền thu khách
-                  </span>
-                  <span className="text-xs font-mono text-emerald-100">
-                    Lời đơn này:{' '}
-                    <strong className="text-amber-200">
-                      +
-                      {formatVND(
-                        Math.max(
-                          0,
-                          (Number(saleQty) || 0) * (Number(saleUnitPrice) || 0) -
-                            Math.max(0, Number(saleDiscount) || 0)
-                        ) -
-                          (Number(saleQty) || 0) * (sellingItem.importPrice || 0)
+              {/* Banner Tổng Tiền Bill & Nhập Tiền Khách Đưa */}
+              {(() => {
+                const currentTotal = Math.max(
+                  0,
+                  (Number(saleQty) || 0) * (Number(saleUnitPrice) || 0) -
+                    Math.max(0, Number(saleDiscount) || 0)
+                );
+                const paidAmount = Number(customerPaid) || 0;
+                const changeAmount = paidAmount - currentTotal;
+
+                return (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] uppercase font-extrabold text-emerald-100 block">
+                          Thành tiền thu khách
+                        </span>
+                        {(Number(saleDiscount) || 0) > 0 && (
+                          <span className="text-[10px] font-mono text-amber-200 block">
+                            Đã giảm: -{formatVND(Number(saleDiscount) || 0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xl font-black font-mono">
+                        {formatVND(currentTotal)}
+                      </div>
+                    </div>
+
+                    {/* Phần nhập tiền khách đưa & tính tiền thừa trả khách */}
+                    <div className="pt-2.5 border-t border-white/20 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] font-bold text-emerald-50 shrink-0">
+                          Tiền khách đưa:
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1000"
+                          placeholder="Nhập tiền khách đưa..."
+                          value={customerPaid}
+                          onChange={e => setCustomerPaid(e.target.value)}
+                          className="w-40 px-2.5 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-black font-mono text-right placeholder:text-slate-400 placeholder:font-normal outline-none focus:ring-2 focus:ring-amber-300"
+                        />
+                      </div>
+
+                      <div className="flex gap-1">
+                        {[
+                          { label: 'Đủ tiền', val: currentTotal },
+                          { label: '100k', val: 100000 },
+                          { label: '200k', val: 200000 },
+                          { label: '500k', val: 500000 },
+                        ].map(btn => (
+                          <button
+                            key={btn.label}
+                            type="button"
+                            onClick={() => setCustomerPaid(String(btn.val))}
+                            className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
+                              paidAmount === btn.val && customerPaid !== ''
+                                ? 'bg-amber-300 text-slate-900 shadow-2xs'
+                                : 'bg-white/15 hover:bg-white/25 text-white'
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {customerPaid !== '' && paidAmount > 0 && (
+                        <div className="pt-1 flex items-center justify-between text-xs">
+                          <span className="font-bold text-emerald-100">
+                            {changeAmount >= 0 ? 'Tiền thừa trả khách:' : 'Khách còn thiếu:'}
+                          </span>
+                          <strong
+                            className={`font-mono text-sm font-black ${
+                              changeAmount >= 0 ? 'text-amber-200' : 'text-rose-200'
+                            }`}
+                          >
+                            {formatVND(Math.abs(changeAmount))}
+                          </strong>
+                        </div>
                       )}
-                    </strong>
-                  </span>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-black font-mono">
-                    {formatVND(
-                      Math.max(
-                        0,
-                        (Number(saleQty) || 0) * (Number(saleUnitPrice) || 0) -
-                          Math.max(0, Number(saleDiscount) || 0)
-                      )
-                    )}
+                    </div>
                   </div>
-                  {(Number(saleDiscount) || 0) > 0 && (
-                    <span className="text-[10px] font-mono text-amber-200 block">
-                      Đã giảm: -{formatVND(Number(saleDiscount) || 0)}
-                    </span>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
 
               <div className="flex gap-2 pt-1">
                 <button
