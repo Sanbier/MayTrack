@@ -50,8 +50,9 @@ export interface SalesBillRecord {
   quantity: number;
   sellPrice: number;
   importPrice: number;
-  totalAmount: number;  // Thành tiền = quantity * sellPrice
-  profitAmount: number; // Tiền lời = quantity * (sellPrice - importPrice)
+  discountAmount?: number; // Số tiền giảm giá
+  totalAmount: number;     // Thành tiền thực tế = quantity * sellPrice - discountAmount
+  profitAmount: number;    // Tiền lời thực tế = totalAmount - quantity * importPrice
   customerNote?: string;
   createdAt: number;
 }

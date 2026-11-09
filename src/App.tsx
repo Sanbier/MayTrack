@@ -123,6 +123,7 @@ export function App() {
   const [cloudConnected, setCloudConnected] = useState<boolean>(() => !!getCloudUrl());
   const isRemoteUpdating = useRef(false);
   const hasInitialCloudSynced = useRef(false);
+  const lastLocalWriteRef = useRef<number>(0);
 
   // Modals state
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
@@ -273,7 +274,9 @@ export function App() {
     });
 
     const handleSync = () => {
+      if (Date.now() - lastLocalWriteRef.current < 3500) return;
       fetchFromCloud(url).then(data => {
+        if (Date.now() - lastLocalWriteRef.current < 3500) return;
         if (data) applyCloudPayload(data);
       }).catch(() => {});
     };
@@ -407,6 +410,25 @@ export function App() {
 
   const handleQuickDeliverConfirm = (delivered: SewingOrder) => {
     setOrders(prev => prev.map(o => o.id === delivered.id ? delivered : o));
+  };
+
+  const handleSaveSalesItems = async (nextSalesItems: SalesItem[]) => {
+    lastLocalWriteRef.current = Date.now();
+    setSalesItems(nextSalesItems);
+    saveSalesItems(nextSalesItems);
+
+    const url = getCloudUrl();
+    if (url && hasInitialCloudSynced.current) {
+      setIsCloudSyncing(true);
+      try {
+        await pushToCloud(orders, presets, settings, url, nextSalesItems);
+        setCloudConnected(true);
+      } catch (e) {
+        console.error('Sales sync failed:', e);
+      } finally {
+        setIsCloudSyncing(false);
+      }
+    }
   };
 
   const handleOpenAddModal = () => {
@@ -1056,7 +1078,7 @@ export function App() {
         {currentTab === 'sales' && (
           <SalesTab
             items={salesItems}
-            onSaveItems={setSalesItems}
+            onSaveItems={handleSaveSalesItems}
             isAddModalOpen={isSalesAddModalOpen}
             onCloseAddModal={() => setSalesAddModalOpen(false)}
             onOpenAddModal={() => setSalesAddModalOpen(true)}

@@ -58,6 +58,18 @@ function getEndpoint(baseUrl: string): string {
   return `${clean}/maytrack_data.json`;
 }
 
+function normalizeSalesItems(raw: unknown): SalesItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(Boolean).map((item: SalesItem) => ({
+    ...item,
+    importQty: Number(item.importQty) || 0,
+    importPrice: Number(item.importPrice) || 0,
+    sellPrice: Number(item.sellPrice) || 0,
+    soldQty: Number(item.soldQty) || 0,
+    bills: Array.isArray(item.bills) ? item.bills : [],
+  }));
+}
+
 /**
  * Tải dữ liệu mới nhất từ đám mây
  */
@@ -86,7 +98,7 @@ export async function fetchFromCloud(baseUrl?: string): Promise<CloudPayload | n
         orders: Array.isArray(data.orders) ? data.orders : [],
         presets: Array.isArray(data.presets) ? data.presets : [],
         settings: data.settings || {},
-        salesItems: Array.isArray(data.salesItems) ? data.salesItems : undefined,
+        salesItems: normalizeSalesItems(data.salesItems),
         lastUpdated: data.lastUpdated || Date.now(),
       } as CloudPayload;
     }
@@ -171,7 +183,7 @@ export function subscribeToCloudUpdates(
           onRemoteChange({
             ...payload,
             orders: incomingOrders,
-            salesItems: Array.isArray(payload.salesItems) ? payload.salesItems : undefined,
+            salesItems: normalizeSalesItems(payload.salesItems),
           });
         } else if (parsed.path !== '/') {
           const fresh = await fetchFromCloud(baseUrl);

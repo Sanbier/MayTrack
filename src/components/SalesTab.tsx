@@ -75,6 +75,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
   const [saleDate, setSaleDate] = useState(getTodayString());
   const [saleQty, setSaleQty] = useState<string>('1');
   const [saleUnitPrice, setSaleUnitPrice] = useState<string>('');
+  const [saleDiscount, setSaleDiscount] = useState<string>('');
   const [customerNote, setCustomerNote] = useState('');
 
   // State cho Modal Nhập Thêm Hàng Nhanh (Restock 1 chạm)
@@ -91,11 +92,23 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     saleDayOfWeek: string;
     quantity: number;
     sellPrice: number;
+    discountAmount?: number;
     totalAmount: number;
     stockRemaining: number;
     customerNote?: string;
   } | null>(null);
   const [copiedBill, setCopiedBill] = useState(false);
+
+  // State cho Modal Xác Nhận Hoàn Đơn & Xóa Mặt Hàng (Thay cho window.confirm để không xung đột Cloud Sync)
+  const [confirmRefund, setConfirmRefund] = useState<{
+    itemId: string;
+    productName: string;
+    bill: SalesBillRecord;
+  } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Khi bấm nút (+) từ BottomTabBar hoặc nút "+ Nhập hàng mới"
   useEffect(() => {
@@ -278,6 +291,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     setSaleDate(getTodayString());
     setSaleQty('1');
     setSaleUnitPrice(String(item.sellPrice));
+    setSaleDiscount('');
     setCustomerNote('');
   };
 
@@ -288,9 +302,10 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
     const qty = Math.max(1, Number(saleQty) || 1);
     const price = Number(saleUnitPrice) || sellingItem.sellPrice || 0;
+    const discount = Math.max(0, Number(saleDiscount) || 0);
     const cost = sellingItem.importPrice || 0;
-    const totalAmount = qty * price;
-    const profitAmount = qty * (price - cost);
+    const totalAmount = Math.max(0, qty * price - discount);
+    const profitAmount = totalAmount - qty * cost;
     const dayVN = getDayOfWeekVN(saleDate);
     const now = Date.now();
 
@@ -301,6 +316,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
       quantity: qty,
       sellPrice: price,
       importPrice: cost,
+      discountAmount: discount > 0 ? discount : undefined,
       totalAmount,
       profitAmount,
       customerNote: customerNote.trim() || undefined,
@@ -334,6 +350,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
       saleDayOfWeek: dayVN,
       quantity: qty,
       sellPrice: price,
+      discountAmount: discount > 0 ? discount : undefined,
       totalAmount,
       stockRemaining: nextStock,
       customerNote: customerNote.trim() || undefined,
@@ -370,33 +387,42 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
   // Xóa mặt hàng
   const handleDeleteItem = (id: string, name: string) => {
-    if (window.confirm(`Bạn có chắc muốn xóa mặt hàng "${name}" không?`)) {
-      onSaveItems(items.filter(i => i.id !== id));
-    }
+    setConfirmDelete({ id, name });
+  };
+
+  const executeDeleteItem = () => {
+    if (!confirmDelete) return;
+    onSaveItems(items.filter(i => i.id !== confirmDelete.id));
+    setConfirmDelete(null);
   };
 
   // Xóa / Hoàn 1 Bill Bán (tự động cộng trả lại số lượng vào tồn kho)
   const handleRefundBill = (itemId: string, bill: SalesBillRecord) => {
-    if (
-      window.confirm(
-        `Hoàn đơn bán ${bill.quantity} "${
-          items.find(i => i.id === itemId)?.productName || ''
-        }"? Số lượng sẽ được cộng trả lại vào tồn kho.`
-      )
-    ) {
-      const next = items.map(item => {
-        if (item.id !== itemId) return item;
-        const nextSold = Math.max(0, (item.soldQty || 0) - bill.quantity);
-        const nextBills = (item.bills || []).filter(b => b.id !== bill.id);
-        return {
-          ...item,
-          soldQty: nextSold,
-          bills: nextBills,
-          updatedAt: Date.now(),
-        };
-      });
-      onSaveItems(next);
-    }
+    const productName = items.find(i => i.id === itemId)?.productName || '';
+    setConfirmRefund({ itemId, productName, bill });
+  };
+
+  const executeRefundBill = () => {
+    if (!confirmRefund) return;
+    const { itemId, bill } = confirmRefund;
+    const next = items.map(item => {
+      if (item.id !== itemId) return item;
+      const isLegacy = bill.id.startsWith('legacy_');
+      const nextBills = isLegacy
+        ? []
+        : (item.bills || []).filter(b => b.id !== bill.id);
+      const nextSold = isLegacy
+        ? 0
+        : Math.max(0, (item.soldQty || 0) - bill.quantity);
+      return {
+        ...item,
+        soldQty: nextSold,
+        bills: nextBills,
+        updatedAt: Date.now(),
+      };
+    });
+    onSaveItems(next);
+    setConfirmRefund(null);
   };
 
   // Danh sách mặt hàng đã lọc
@@ -489,9 +515,16 @@ export const SalesTab: React.FC<SalesTabProps> = ({
       const stockQty = impQty - sQty;
 
       totalUnitProfit += unitProfit;
-      totalRealizedProfit += sQty * unitProfit;
+      if (item.bills && item.bills.length > 0) {
+        item.bills.forEach(b => {
+          totalRevenue += b.totalAmount || 0;
+          totalRealizedProfit += b.profitAmount || 0;
+        });
+      } else {
+        totalRealizedProfit += sQty * unitProfit;
+        totalRevenue += sQty * sPrice;
+      }
       totalExpectedProfit += impQty * unitProfit;
-      totalRevenue += sQty * sPrice;
       totalImportCapital += impQty * impPrice;
       totalStockValue += Math.max(0, stockQty) * impPrice;
       totalImportQty += impQty;
@@ -529,6 +562,9 @@ export const SalesTab: React.FC<SalesTabProps> = ({
       `📦 Sản phẩm: ${previewBill.productName}${previewBill.category ? ` (${previewBill.category})` : ''}`,
       `🔢 Số lượng: ${formatNumber(previewBill.quantity)}`,
       `💵 Đơn giá: ${formatVND(previewBill.sellPrice)}`,
+      previewBill.discountAmount && previewBill.discountAmount > 0
+        ? `🏷️ Giảm giá: -${formatVND(previewBill.discountAmount)}`
+        : '',
       `💰 THÀNH TIỀN: ${formatVND(previewBill.totalAmount)}`,
       previewBill.customerNote ? `📝 Ghi chú: ${previewBill.customerNote}` : '',
     ]
@@ -960,7 +996,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-[11px] text-slate-500 font-mono">
-                      Đơn giá: {formatVND(bill.sellPrice)}/c • Kho còn:{' '}
+                      Đơn giá: {formatVND(bill.sellPrice)}/c
+                      {bill.discountAmount && bill.discountAmount > 0
+                        ? ` (Giảm -${formatVND(bill.discountAmount)})`
+                        : ''}{' '}
+                      • Kho còn:{' '}
                       <strong className={currentStock <= 0 ? 'text-rose-600' : 'text-slate-800'}>
                         {formatNumber(currentStock)}
                       </strong>
@@ -977,6 +1017,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                             saleDayOfWeek: bill.saleDayOfWeek,
                             quantity: bill.quantity,
                             sellPrice: bill.sellPrice,
+                            discountAmount: bill.discountAmount,
                             totalAmount: bill.totalAmount,
                             stockRemaining: currentStock,
                             customerNote: bill.customerNote,
@@ -988,16 +1029,15 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                         <span>Xuất Bill</span>
                       </button>
 
-                      {!bill.id.startsWith('legacy_') && (
-                        <button
-                          type="button"
-                          onClick={() => handleRefundBill(item.id, bill)}
-                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600"
-                          title="Hoàn đơn & cộng lại tồn kho"
-                        >
-                          <Undo2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRefundBill(item.id, bill)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[11px] flex items-center gap-1 active:scale-95 transition-all"
+                        title="Hoàn đơn & cộng lại tồn kho"
+                      >
+                        <Undo2 className="w-3 h-3" />
+                        <span>Hoàn đơn</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1082,7 +1122,10 @@ export const SalesTab: React.FC<SalesTabProps> = ({
               const unitProfit = (item.sellPrice || 0) - (item.importPrice || 0);
               const sold = item.soldQty || 0;
               const stock = (item.importQty || 0) - sold;
-              const realized = sold * unitProfit;
+              const realized =
+                item.bills && item.bills.length > 0
+                  ? item.bills.reduce((acc, b) => acc + (b.profitAmount || 0), 0)
+                  : sold * unitProfit;
 
               return (
                 <div
@@ -1566,9 +1609,38 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     onChange={e => setSaleUnitPrice(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-black font-mono text-emerald-700 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
-                  <span className="text-[10px] text-slate-400 block mt-1 font-mono">
-                    Giá vốn: {formatVND(sellingItem.importPrice)}
-                  </span>
+                </div>
+              </div>
+
+              {/* Mục Giảm giá để giảm số tiền thực tế bán */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                  Giảm giá (Trừ vào tiền bán thực tế)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="500"
+                  placeholder="Nhập số tiền giảm (VD: 5000, 10000...)"
+                  value={saleDiscount}
+                  onChange={e => setSaleDiscount(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-amber-50/60 border border-amber-200 text-xs font-black font-mono text-amber-800 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+                <div className="flex gap-1 mt-1">
+                  {[0, 5000, 10000, 15000, 20000].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setSaleDiscount(d === 0 ? '' : String(d))}
+                      className={`flex-1 py-0.5 rounded-lg text-[10px] font-mono font-bold border ${
+                        (Number(saleDiscount) || 0) === d
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      {d === 0 ? 'Không giảm' : `-${d / 1000}k`}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1597,14 +1669,31 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     <strong className="text-amber-200">
                       +
                       {formatVND(
-                        (Number(saleQty) || 0) *
-                          ((Number(saleUnitPrice) || 0) - (sellingItem.importPrice || 0))
+                        Math.max(
+                          0,
+                          (Number(saleQty) || 0) * (Number(saleUnitPrice) || 0) -
+                            Math.max(0, Number(saleDiscount) || 0)
+                        ) -
+                          (Number(saleQty) || 0) * (sellingItem.importPrice || 0)
                       )}
                     </strong>
                   </span>
                 </div>
-                <div className="text-xl font-black font-mono">
-                  {formatVND((Number(saleQty) || 0) * (Number(saleUnitPrice) || 0))}
+                <div className="text-right">
+                  <div className="text-xl font-black font-mono">
+                    {formatVND(
+                      Math.max(
+                        0,
+                        (Number(saleQty) || 0) * (Number(saleUnitPrice) || 0) -
+                          Math.max(0, Number(saleDiscount) || 0)
+                      )
+                    )}
+                  </div>
+                  {(Number(saleDiscount) || 0) > 0 && (
+                    <span className="text-[10px] font-mono text-amber-200 block">
+                      Đã giảm: -{formatVND(Number(saleDiscount) || 0)}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1786,6 +1875,14 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                   {formatVND(previewBill.sellPrice)}
                 </strong>
               </div>
+              {previewBill.discountAmount && previewBill.discountAmount > 0 ? (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Giảm giá:</span>
+                  <strong className="font-mono text-rose-600">
+                    -{formatVND(previewBill.discountAmount)}
+                  </strong>
+                </div>
+              ) : null}
               {previewBill.customerNote && (
                 <div className="flex justify-between">
                   <span className="text-slate-500">Ghi chú:</span>
@@ -1815,6 +1912,89 @@ export const SalesTab: React.FC<SalesTabProps> = ({
               >
                 {copiedBill ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 <span>{copiedBill ? 'Đã copy Bill!' : 'Copy Bill gửi Zalo'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* MODAL 5: XÁC NHẬN HOÀN ĐƠN BÁN                                    */}
+      {/* ================================================================= */}
+      {confirmRefund && (
+        <div
+          className="fixed md:absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setConfirmRefund(null)}
+        >
+          <div
+            className="w-full max-w-xs bg-white rounded-3xl shadow-2xl p-4 space-y-3 border border-slate-100 text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <Undo2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900">Xác nhận hoàn đơn?</h3>
+              <p className="text-xs text-slate-600 mt-1">
+                Hoàn đơn bán <strong>{formatNumber(confirmRefund.bill.quantity)} cái</strong>{' '}
+                <strong>"{confirmRefund.productName}"</strong>? Số lượng sẽ được cộng trả lại vào tồn kho.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmRefund(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={executeRefundBill}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/20 active:scale-95 transition-all"
+              >
+                Hoàn đơn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* MODAL 6: XÁC NHẬN XÓA MẶT HÀNG                                    */}
+      {/* ================================================================= */}
+      {confirmDelete && (
+        <div
+          className="fixed md:absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            className="w-full max-w-xs bg-white rounded-3xl shadow-2xl p-4 space-y-3 border border-slate-100 text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900">Xóa mặt hàng này?</h3>
+              <p className="text-xs text-slate-600 mt-1">
+                Bạn có chắc muốn xóa mặt hàng <strong>"{confirmDelete.name}"</strong> khỏi kho không?
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteItem}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/20 active:scale-95 transition-all"
+              >
+                Xóa
               </button>
             </div>
           </div>
