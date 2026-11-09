@@ -1375,61 +1375,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-orange-500 outline-none"
                   />
 
-                  {/* Thông báo thông minh khi phát hiện sản phẩm đã có trong kho (tránh trùng) */}
+                  {/* Thông báo ngắn gọn khi phát hiện sản phẩm đã có trong kho */}
                   {!editingItem && matchedExistingItem && (
-                    <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-950 flex items-start gap-2 animate-in fade-in duration-150">
-                      <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="font-extrabold block">
-                          Đã có "{matchedExistingItem.productName}" trong kho (Hiện tồn:{' '}
-                          {formatNumber(
-                            (matchedExistingItem.importQty || 0) -
-                              (matchedExistingItem.soldQty || 0)
-                          )}{' '}
-                          cái)
-                        </strong>
-                        <span className="text-[10px] text-indigo-800">
-                          Khi lưu sẽ tự động <strong>cộng dồn +{Number(importQty) || 0} cái</strong> vào mặt hàng này để không bị tạo trùng!
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Mục hàng / Nhóm phân loại */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Tag className="w-3.5 h-3.5 text-orange-500" />
-                      Mục hàng / Nhóm phân loại (Tùy chọn)
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      Gõ mục mới hoặc bấm chọn bên dưới
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="VD: Hoa, Trái cây, Phụ kiện, Quần áo..."
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
-                  />
-                  {categories.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {categories.map(cat => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setCategory(cat)}
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all ${
-                            category === cat
-                              ? 'bg-orange-600 text-white border-orange-600'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
+                    <div className="px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-950 font-bold flex items-center gap-1.5 animate-in fade-in duration-150">
+                      <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>Đã có "{matchedExistingItem.productName}" trong kho</span>
                     </div>
                   )}
                 </div>
@@ -1570,13 +1520,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                   }`}
                 >
                   <Check className="w-4 h-4" />
-                  <span>
-                    {editingItem
-                      ? 'Lưu Cập Nhật'
-                      : matchedExistingItem
-                      ? `Cộng Thêm +${Number(importQty) || 0} Vào "${matchedExistingItem.productName}"`
-                      : 'Lưu Mặt Hàng Mới'}
-                  </span>
+                  <span>{editingItem ? 'Lưu Cập Nhật' : 'Thêm'}</span>
                 </button>
               </div>
             </form>
@@ -1860,7 +1804,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                   className="flex-1 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black shadow-md shadow-orange-600/20 flex items-center justify-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Cộng Vào Tồn Kho</span>
+                  <span>Thêm</span>
                 </button>
               </div>
             </form>
