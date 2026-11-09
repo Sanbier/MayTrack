@@ -459,7 +459,7 @@ export function App() {
               <div className="leading-tight">
                 <span className="font-black text-xs text-slate-900 block">Quản Lý Bán Hàng</span>
                 <span className="text-[10px] text-orange-600 font-bold block">
-                  Nhập hàng bán & Bill bán (Trang tính19)
+                  Sổ Kho Nhập Hàng & Bill Bán Lẻ
                 </span>
               </div>
             </div>
