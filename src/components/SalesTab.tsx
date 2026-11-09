@@ -35,6 +35,7 @@ import {
   Undo2,
   Layers,
   Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 
 interface SalesTabProps {
@@ -153,7 +154,19 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     onCloseAddModal();
   };
 
-  // Khi chọn 1 mặt hàng có sẵn để nhập thêm trong Modal chính
+  // Tự động kiểm tra xem tên sản phẩm đang chọn hoặc đang gõ có trùng với sản phẩm đã có trong kho không
+  const matchedExistingItem = useMemo(() => {
+    if (editingItem) return null;
+    if (selectedExistingId) {
+      const byId = items.find(i => i.id === selectedExistingId);
+      if (byId) return byId;
+    }
+    const clean = productName.trim().toLowerCase();
+    if (!clean) return null;
+    return items.find(i => i.productName.trim().toLowerCase() === clean) || null;
+  }, [editingItem, selectedExistingId, productName, items]);
+
+  // Khi chọn 1 mặt hàng có sẵn từ Dropdown hoặc Chip để tránh trùng
   const handleSelectExistingForRestock = (item: SalesItem) => {
     setImportMode('RESTOCK_EXISTING');
     setSelectedExistingId(item.id);
@@ -161,7 +174,23 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     setCategory(item.category || '');
     setImportPrice(String(item.importPrice));
     setSellPrice(String(item.sellPrice));
-    setImportQty('10');
+  };
+
+  // Khi người dùng gõ vào ô Tên sản phẩm: nếu gõ trùng tên SP đã có thì tự động điền giá của SP đó
+  const handleProductNameChange = (val: string) => {
+    setProductName(val);
+    const clean = val.trim().toLowerCase();
+    const matched = items.find(i => i.productName.trim().toLowerCase() === clean);
+    if (matched) {
+      setSelectedExistingId(matched.id);
+      setImportMode('RESTOCK_EXISTING');
+      if (!importPrice) setImportPrice(String(matched.importPrice));
+      if (!sellPrice) setSellPrice(String(matched.sellPrice));
+      if (!category && matched.category) setCategory(matched.category);
+    } else {
+      setSelectedExistingId('');
+      setImportMode('NEW_PRODUCT');
+    }
   };
 
   // Lưu trong Modal Nhập Hàng Mới / Sửa Mặt Hàng
@@ -195,24 +224,22 @@ export const SalesTab: React.FC<SalesTabProps> = ({
       return;
     }
 
-    // Trường hợp 2: Nhập thêm hàng cộng dồn vào mặt hàng đã có
-    if (importMode === 'RESTOCK_EXISTING' && selectedExistingId) {
-      const target = items.find(i => i.id === selectedExistingId);
-      if (target) {
-        const updated: SalesItem = {
-          ...target,
-          importDate,
-          importDayOfWeek: dayVN,
-          importQty: (target.importQty || 0) + parsedImportQty,
-          importPrice: parsedImportPrice || target.importPrice,
-          sellPrice: parsedSellPrice || target.sellPrice,
-          note: note.trim() ? note.trim() : target.note,
-          updatedAt: now,
-        };
-        onSaveItems(items.map(i => (i.id === target.id ? updated : i)));
-        handleCloseAddModal();
-        return;
-      }
+    // Trường hợp 2: Đã chọn hoặc gõ trùng tên với mặt hàng đã có -> Tự động cộng dồn vào mặt hàng đó để không bị trùng
+    if (matchedExistingItem) {
+      const updated: SalesItem = {
+        ...matchedExistingItem,
+        importDate,
+        importDayOfWeek: dayVN,
+        category: category.trim() ? category.trim() : matchedExistingItem.category,
+        importQty: (matchedExistingItem.importQty || 0) + parsedImportQty,
+        importPrice: parsedImportPrice || matchedExistingItem.importPrice,
+        sellPrice: parsedSellPrice || matchedExistingItem.sellPrice,
+        note: note.trim() ? note.trim() : matchedExistingItem.note,
+        updatedAt: now,
+      };
+      onSaveItems(items.map(i => (i.id === matchedExistingItem.id ? updated : i)));
+      handleCloseAddModal();
+      return;
     }
 
     // Trường hợp 3: Tạo mặt hàng mới / mục mới hoàn toàn
@@ -1218,77 +1245,6 @@ export const SalesTab: React.FC<SalesTabProps> = ({
               onSubmit={handleSubmitProductForm}
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
             >
-              {/* Chuyển đổi giữa: Tạo Mặt Hàng Mới vs Nhập Thêm Hàng Đã Có (nếu đang thêm mới và kho đã có SP) */}
-              {!editingItem && items.length > 0 && (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImportMode('NEW_PRODUCT');
-                        setSelectedExistingId('');
-                        setProductName('');
-                      }}
-                      className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1 ${
-                        importMode === 'NEW_PRODUCT'
-                          ? 'bg-orange-600 text-white shadow-xs'
-                          : 'text-slate-600'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Tạo Mặt Hàng Mới</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImportMode('RESTOCK_EXISTING');
-                        if (items[0]) handleSelectExistingForRestock(items[0]);
-                      }}
-                      className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1 ${
-                        importMode === 'RESTOCK_EXISTING'
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'text-slate-600'
-                      }`}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>Nhập Thêm SP Đã Có</span>
-                    </button>
-                  </div>
-
-                  {/* Danh sách chip chọn nhanh mặt hàng đã có */}
-                  {importMode === 'RESTOCK_EXISTING' && (
-                    <div className="p-2.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 space-y-1.5">
-                      <span className="text-[10px] font-extrabold uppercase text-indigo-900 block">
-                        Chọn mặt hàng cần cộng thêm số lượng nhập:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                        {items.map(item => {
-                          const stock = (item.importQty || 0) - (item.soldQty || 0);
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleSelectExistingForRestock(item)}
-                              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-                                selectedExistingId === item.id
-                                  ? 'bg-indigo-600 text-white shadow-xs'
-                                  : 'bg-white border border-indigo-200 text-slate-700'
-                              }`}
-                            >
-                              <span>{item.productName}</span>
-                              <span className="text-[10px] opacity-80 font-mono">
-                                (Tồn: {stock})
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Ngày nhập hàng */}
               <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-4">
@@ -1308,67 +1264,182 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                 </div>
               </div>
 
-              {/* Tên Sản Phẩm & Mục Hàng (Category) */}
-              {importMode === 'NEW_PRODUCT' && (
-                <div className="space-y-2.5">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 mb-1 block">
-                      Tên sản phẩm / mặt hàng mới *
+              {/* Tên Sản Phẩm / Mặt Hàng (Có tùy chọn chọn từ SP đã có để khỏi bị trùng + gõ mới) */}
+              <div className="space-y-2.5">
+                <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-800 block">
+                      Tên sản phẩm / mặt hàng <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Nhập tên mặt hàng mới..."
-                      value={productName}
-                      onChange={e => setProductName(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Tag className="w-3.5 h-3.5 text-orange-500" />
-                        Mục hàng / Nhóm phân loại (Tùy chọn)
+                    {!editingItem && items.length > 0 && (
+                      <span className="text-[10px] font-bold text-orange-600">
+                        Chọn SP đã có hoặc gõ tên mới
                       </span>
-                      <span className="text-[10px] text-slate-400 font-normal">
-                        Gõ mục mới hoặc bấm chọn bên dưới
-                      </span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="VD: Hoa, Trái cây, Phụ kiện, Quần áo..."
-                      value={category}
-                      onChange={e => setCategory(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    />
-                    {categories.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {categories.map(cat => (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setCategory(cat)}
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all ${
-                              category === cat
-                                ? 'bg-orange-600 text-white border-orange-600'
-                                : 'bg-slate-100 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
                     )}
                   </div>
+
+                  {/* Dropdown chọn sản phẩm đã có trong kho (để tránh nhập trùng) */}
+                  {!editingItem && items.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <select
+                          value={matchedExistingItem ? matchedExistingItem.id : ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (!val) {
+                              setImportMode('NEW_PRODUCT');
+                              setSelectedExistingId('');
+                              setProductName('');
+                              setImportPrice('');
+                              setSellPrice('');
+                              return;
+                            }
+                            const found = items.find(i => i.id === val);
+                            if (found) {
+                              handleSelectExistingForRestock(found);
+                            }
+                          }}
+                          className="w-full h-[38px] pl-3 pr-8 rounded-xl bg-white border border-orange-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer truncate shadow-2xs"
+                        >
+                          <option value="">
+                            ➕ Gõ tên mặt hàng mới hoàn toàn...
+                          </option>
+                          {items.map(item => {
+                            const stock = (item.importQty || 0) - (item.soldQty || 0);
+                            return (
+                              <option key={item.id} value={item.id}>
+                                📦 {item.productName} (Đang tồn: {stock} • Vốn: {formatVND(item.importPrice)} • Bán: {formatVND(item.sellPrice)})
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      {/* Các nút bấm chọn nhanh 1 chạm các sản phẩm đã có */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImportMode('NEW_PRODUCT');
+                            setSelectedExistingId('');
+                            setProductName('');
+                            setImportPrice('');
+                            setSellPrice('');
+                          }}
+                          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border ${
+                            !matchedExistingItem
+                              ? 'bg-orange-600 text-white border-orange-600 shadow-2xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          + Mặt hàng mới
+                        </button>
+
+                        {items.map(item => {
+                          const stock = (item.importQty || 0) - (item.soldQty || 0);
+                          const isSelected = matchedExistingItem?.id === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSelectExistingForRestock(item)}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all shrink-0 flex items-center gap-1 border ${
+                                isSelected
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                              }`}
+                            >
+                              <span>{item.productName}</span>
+                              <span
+                                className={`text-[10px] font-mono ${
+                                  isSelected ? 'text-indigo-100' : 'text-slate-400'
+                                }`}
+                              >
+                                ({stock})
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ô nhập tên mặt hàng (Có tự động kiểm tra trùng tên) */}
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nhập tên mặt hàng mới hoặc chọn ở trên..."
+                    value={productName}
+                    onChange={e => handleProductNameChange(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+
+                  {/* Thông báo thông minh khi phát hiện sản phẩm đã có trong kho (tránh trùng) */}
+                  {!editingItem && matchedExistingItem && (
+                    <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-950 flex items-start gap-2 animate-in fade-in duration-150">
+                      <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="font-extrabold block">
+                          Đã có "{matchedExistingItem.productName}" trong kho (Hiện tồn:{' '}
+                          {formatNumber(
+                            (matchedExistingItem.importQty || 0) -
+                              (matchedExistingItem.soldQty || 0)
+                          )}{' '}
+                          cái)
+                        </strong>
+                        <span className="text-[10px] text-indigo-800">
+                          Khi lưu sẽ tự động <strong>cộng dồn +{Number(importQty) || 0} cái</strong> vào mặt hàng này để không bị tạo trùng!
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* Mục hàng / Nhóm phân loại */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5 text-orange-500" />
+                      Mục hàng / Nhóm phân loại (Tùy chọn)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Gõ mục mới hoặc bấm chọn bên dưới
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="VD: Hoa, Trái cây, Phụ kiện, Quần áo..."
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  {categories.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {categories.map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCategory(cat)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all ${
+                            category === cat
+                              ? 'bg-orange-600 text-white border-orange-600'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Số lượng nhập & Giá nhập - Giá bán */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="text-[11px] font-bold text-slate-700 mb-1 block">
-                    {importMode === 'RESTOCK_EXISTING'
+                    {matchedExistingItem
                       ? 'Số lượng nhập thêm *'
                       : 'Số lượng nhập *'}
                   </label>
@@ -1446,7 +1517,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     Lợi nhuận 1 sản phẩm (= Giá bán − Giá nhập)
                   </span>
                   <span className="text-[11px] text-slate-600">
-                    Dự kiến lời cả lô ({formatNumber(Number(importQty) || 0)} cái):{' '}
+                    Dự kiến lời lô này ({formatNumber(Number(importQty) || 0)} cái):{' '}
                     <strong className="font-mono text-emerald-700">
                       +{formatVND((Number(importQty) || 0) * previewUnitProfit)}
                     </strong>
@@ -1492,14 +1563,18 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black shadow-md shadow-orange-600/25 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+                  className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md active:scale-98 transition-all flex items-center justify-center gap-1.5 ${
+                    matchedExistingItem
+                      ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25'
+                      : 'bg-orange-600 hover:bg-orange-700 shadow-orange-600/25'
+                  }`}
                 >
                   <Check className="w-4 h-4" />
                   <span>
                     {editingItem
                       ? 'Lưu Cập Nhật'
-                      : importMode === 'RESTOCK_EXISTING'
-                      ? 'Cộng Thêm Vào Kho'
+                      : matchedExistingItem
+                      ? `Cộng Thêm +${Number(importQty) || 0} Vào "${matchedExistingItem.productName}"`
                       : 'Lưu Mặt Hàng Mới'}
                   </span>
                 </button>
