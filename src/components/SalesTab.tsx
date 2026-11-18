@@ -16,6 +16,7 @@ import { DateInputVN } from './DateInputVN';
 import confetti from 'canvas-confetti';
 import {
   ShoppingBag,
+  Plus,
   Search,
   Edit3,
   Trash2,
@@ -97,10 +98,30 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     sellPrice: number;
     discountAmount?: number;
     totalAmount: number;
-    stockRemaining: number;
+    stockRemaining?: number;
     customerNote?: string;
+    lines?: Array<{
+      productName: string;
+      quantity: number;
+      sellPrice: number;
+      lineTotal: number;
+    }>;
   } | null>(null);
   const [copiedBill, setCopiedBill] = useState(false);
+
+  // State cho Giỏ Hàng (Chọn nhiều loại hàng muốn bán cùng lúc - Cách B)
+  const [cart, setCart] = useState<
+    Array<{
+      itemId: string;
+      quantity: string;
+      unitPrice: string;
+    }>
+  >([]);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [cartSaleDate, setCartSaleDate] = useState(getTodayString());
+  const [cartDiscount, setCartDiscount] = useState<string>('');
+  const [cartCustomerPaid, setCartCustomerPaid] = useState<string>('');
+  const [cartCustomerNote, setCartCustomerNote] = useState('');
 
   // State cho Modal Xác Nhận Hoàn Đơn & Xóa Mặt Hàng (Thay cho window.confirm để không xung đột Cloud Sync)
   const [confirmRefund, setConfirmRefund] = useState<{
@@ -361,6 +382,193 @@ export const SalesTab: React.FC<SalesTabProps> = ({
     });
   };
 
+  // =========================================================================
+  // GIỎ HÀNG NHIỀU MÓN (THÊM VÀO GIỎ, TĂNG GIẢM SL, LÊN BILL GỘP NHIỀU LOẠI)
+  // =========================================================================
+  const handleAddToCart = (item: SalesItem) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.itemId === item.id);
+      if (existing) {
+        return prev.map(c =>
+          c.itemId === item.id
+            ? { ...c, quantity: String((Number(c.quantity) || 0) + 1) }
+            : c
+        );
+      }
+      return [
+        ...prev,
+        {
+          itemId: item.id,
+          quantity: '1',
+          unitPrice: String(item.sellPrice || 0),
+        },
+      ];
+    });
+  };
+
+  const handleChangeCartQty = (itemId: string, delta: number) => {
+    setCart(prev => {
+      return prev
+        .map(c => {
+          if (c.itemId !== itemId) return c;
+          const nextQty = (Number(c.quantity) || 0) + delta;
+          return nextQty > 0 ? { ...c, quantity: String(nextQty) } : null;
+        })
+        .filter(Boolean) as Array<{ itemId: string; quantity: string; unitPrice: string }>;
+    });
+  };
+
+  const handleSetCartQty = (itemId: string, rawVal: string) => {
+    const clean = parseInputDots(rawVal);
+    setCart(prev =>
+      prev.map(c => (c.itemId === itemId ? { ...c, quantity: clean } : c))
+    );
+  };
+
+  const handleSetCartPrice = (itemId: string, rawVal: string) => {
+    const clean = parseInputDots(rawVal);
+    setCart(prev =>
+      prev.map(c => (c.itemId === itemId ? { ...c, unitPrice: clean } : c))
+    );
+  };
+
+  const handleRemoveFromCart = (itemId: string) => {
+    setCart(prev => prev.filter(c => c.itemId !== itemId));
+  };
+
+  const handleOpenCartModal = () => {
+    setCartSaleDate(getTodayString());
+    setCartDiscount('');
+    setCartCustomerPaid('');
+    setCartCustomerNote('');
+    setIsCartModalOpen(true);
+  };
+
+  // Tổng hợp thông tin Giỏ hàng hiện tại
+  const cartDetails = useMemo(() => {
+    const validEntries = cart
+      .map(entry => {
+        const item = items.find(i => i.id === entry.itemId);
+        if (!item) return null;
+        const qty = Math.max(1, Number(entry.quantity) || 1);
+        const price = Number(entry.unitPrice) || 0;
+        const lineTotal = qty * price;
+        return {
+          entry,
+          item,
+          qty,
+          price,
+          lineTotal,
+        };
+      })
+      .filter(Boolean) as Array<{
+      entry: { itemId: string; quantity: string; unitPrice: string };
+      item: SalesItem;
+      qty: number;
+      price: number;
+      lineTotal: number;
+    }>;
+
+    const totalTypes = validEntries.length;
+    const totalUnits = validEntries.reduce((acc, x) => acc + x.qty, 0);
+    const subtotal = validEntries.reduce((acc, x) => acc + x.lineTotal, 0);
+
+    return {
+      validEntries,
+      totalTypes,
+      totalUnits,
+      subtotal,
+    };
+  }, [cart, items]);
+
+  const handleConfirmCartSell = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cartDetails.validEntries.length === 0) return;
+
+    const now = Date.now();
+    const dayVN = getDayOfWeekVN(cartSaleDate);
+    const discountTotal = Math.max(0, Number(cartDiscount) || 0);
+    const subtotal = cartDetails.subtotal;
+    const finalTotalAmount = Math.max(0, subtotal - discountTotal);
+
+    let remainingDiscountToAllocate = Math.min(discountTotal, subtotal);
+
+    // Map qua danh sách mặt hàng để trừ tồn kho và ghi nhận Bill cho từng mặt hàng trong giỏ
+    const nextItems = items.map(item => {
+      const foundIdx = cartDetails.validEntries.findIndex(x => x.item.id === item.id);
+      if (foundIdx === -1) return item;
+
+      const { qty, price, lineTotal } = cartDetails.validEntries[foundIdx];
+      const isLastCartItem = foundIdx === cartDetails.validEntries.length - 1;
+
+      let itemDiscount = 0;
+      if (remainingDiscountToAllocate > 0 && subtotal > 0) {
+        if (isLastCartItem) {
+          itemDiscount = remainingDiscountToAllocate;
+        } else {
+          itemDiscount = Math.min(
+            remainingDiscountToAllocate,
+            Math.round((lineTotal / subtotal) * discountTotal)
+          );
+          remainingDiscountToAllocate -= itemDiscount;
+        }
+      }
+
+      const itemFinalTotal = Math.max(0, lineTotal - itemDiscount);
+      const cost = item.importPrice || 0;
+      const itemProfit = itemFinalTotal - qty * cost;
+
+      const newBill: SalesBillRecord = {
+        id: `bill_${now}_${foundIdx}_${Math.random().toString(36).slice(2, 5)}`,
+        saleDate: cartSaleDate,
+        saleDayOfWeek: dayVN,
+        quantity: qty,
+        sellPrice: price,
+        importPrice: cost,
+        discountAmount: itemDiscount > 0 ? itemDiscount : undefined,
+        totalAmount: itemFinalTotal,
+        profitAmount: itemProfit,
+        customerNote: cartCustomerNote.trim() || undefined,
+        createdAt: now + foundIdx,
+      };
+
+      return {
+        ...item,
+        soldQty: (item.soldQty || 0) + qty,
+        bills: [newBill, ...(item.bills || [])],
+        updatedAt: now,
+      };
+    });
+
+    confetti({
+      particleCount: 75,
+      spread: 70,
+      origin: { y: 0.75 },
+    });
+
+    onSaveItems(nextItems);
+    setCart([]);
+    setIsCartModalOpen(false);
+
+    // Mở ngay Phiếu Bill tổng hợp tất cả mặt hàng vừa bán để xem hoặc Copy gửi Zalo
+    setPreviewBill({
+      productName: cartDetails.validEntries.map(x => x.item.productName).join(', '),
+      saleDate: cartSaleDate,
+      saleDayOfWeek: dayVN,
+      quantity: cartDetails.totalUnits,
+      sellPrice: cartDetails.validEntries[0].price,
+      discountAmount: discountTotal > 0 ? discountTotal : undefined,
+      totalAmount: finalTotalAmount,
+      customerNote: cartCustomerNote.trim() || undefined,
+      lines: cartDetails.validEntries.map(x => ({
+        productName: x.item.productName,
+        quantity: x.qty,
+        sellPrice: x.price,
+        lineTotal: x.lineTotal,
+      })),
+    });
+  };
+
   // Mở Modal Nhập Thêm Hàng Nhanh (1 chạm từ thẻ)
   const handleOpenRestockModal = (item: SalesItem) => {
     setRestockItem(item);
@@ -559,16 +767,31 @@ export const SalesTab: React.FC<SalesTabProps> = ({
 
   const handleCopyPreviewBill = () => {
     if (!previewBill) return;
+    const isMultiLine = previewBill.lines && previewBill.lines.length > 0;
+    const itemLinesText = isMultiLine
+      ? previewBill.lines!.map(
+          (l, idx) =>
+            `${idx + 1}. ${l.productName}: ${formatNumber(l.quantity)} cái × ${formatVND(
+              l.sellPrice
+            )} = ${formatVND(l.lineTotal)}`
+        )
+      : [
+          `📦 Sản phẩm: ${previewBill.productName}${
+            previewBill.category ? ` (${previewBill.category})` : ''
+          }`,
+          `🔢 Số lượng: ${formatNumber(previewBill.quantity)} cái`,
+          `💵 Đơn giá: ${formatVND(previewBill.sellPrice)}`,
+        ];
+
     const text = [
       '🧾 PHIẾU BILL BÁN HÀNG',
       '------------------------',
       `📅 Ngày: ${formatDateVN(previewBill.saleDate)} (${previewBill.saleDayOfWeek})`,
-      `📦 Sản phẩm: ${previewBill.productName}${previewBill.category ? ` (${previewBill.category})` : ''}`,
-      `🔢 Số lượng: ${formatNumber(previewBill.quantity)}`,
-      `💵 Đơn giá: ${formatVND(previewBill.sellPrice)}`,
+      ...itemLinesText,
       previewBill.discountAmount && previewBill.discountAmount > 0
         ? `🏷️ Giảm giá: -${formatVND(previewBill.discountAmount)}`
         : '',
+      '------------------------',
       `💰 THÀNH TIỀN: ${formatVND(previewBill.totalAmount)}`,
       previewBill.customerNote ? `📝 Ghi chú: ${previewBill.customerNote}` : '',
     ]
@@ -786,12 +1009,56 @@ export const SalesTab: React.FC<SalesTabProps> = ({
             </button>
           </div>
 
+          {/* Thanh Giỏ Hàng Nổi khi đã chọn mặt hàng vào giỏ */}
+          {cartDetails.totalTypes > 0 && (
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white shadow-md shadow-indigo-600/25 flex items-center justify-between gap-2 animate-in fade-in duration-150">
+              <div
+                onClick={handleOpenCartModal}
+                className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+              >
+                <div className="relative p-2 rounded-xl bg-white/20 shrink-0">
+                  <ShoppingCart className="w-4 h-4 text-white" />
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center">
+                    {cartDetails.totalTypes}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-black truncate">
+                    Giỏ hàng: {cartDetails.totalTypes} loại ({formatNumber(cartDetails.totalUnits)} cái)
+                  </div>
+                  <div className="text-[11px] font-mono font-bold text-amber-200">
+                    Tạm tính: {formatVND(cartDetails.subtotal)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCart([])}
+                  className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white/90"
+                  title="Xóa toàn bộ giỏ hàng"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCartModal}
+                  className="px-3 py-2 rounded-xl bg-white text-indigo-700 text-xs font-black shadow-xs active:scale-95 transition-all"
+                >
+                  Xem Giỏ & Bán
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Danh sách Thẻ Mặt Hàng (Thiết kế chuẩn OrderCard của MayTrack) */}
           <div className="space-y-2.5 pt-0.5">
             {filteredItems.map(item => {
               const sold = item.soldQty || 0;
               const stock = (item.importQty || 0) - sold;
               const isOut = stock <= 0;
+              const cartEntry = cart.find(c => c.itemId === item.id);
 
               const borderStyle = isOut
                 ? 'border-l-4 border-l-rose-600 ring-2 ring-rose-300 bg-rose-50/10 border-slate-200'
@@ -824,14 +1091,14 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Hàng 2: Lưới thông tin SL hiện tại - Đã bán/Tồn kho - Ngày nhập */}
+                  {/* Hàng 2: Lưới thông tin Đơn giá - Đã bán/Tồn kho - Ngày nhập */}
                   <div className="grid grid-cols-3 gap-1.5 my-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
                     <div>
                       <span className="text-[10px] text-slate-400 font-semibold block">
-                        SL hiện tại
+                        Đơn giá
                       </span>
-                      <strong className="text-xs font-mono font-extrabold text-slate-800">
-                        {formatNumber(item.importQty)} cái
+                      <strong className="text-xs font-mono font-extrabold text-orange-600">
+                        {formatVND(item.sellPrice)}
                       </strong>
                     </div>
 
@@ -865,17 +1132,57 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     </div>
                   )}
 
-                  {/* Hàng 3: Các nút hành động 1 chạm giống OrderCard */}
+                  {/* Hàng 3: Các nút hành động 1 chạm (Bán Hàng + Giỏ Hàng + Nhập thêm + Sửa + Xóa) */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                    {/* Nút chính 1: Bấm Bán Hàng */}
+                    {/* Nút chính 1: Bấm Bán Hàng lẻ 1 món */}
                     <button
                       type="button"
                       onClick={() => handleOpenSellModal(item)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1"
                     >
-                      <ShoppingCart className="w-3.5 h-3.5" />
+                      <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
                       <span>Bán Hàng</span>
                     </button>
+
+                    {/* Nút chính 2: Thêm vào Giỏ hàng (để chọn nhiều loại hàng muốn bán) */}
+                    {cartEntry ? (
+                      <div className="flex items-center bg-indigo-600 text-white rounded-xl p-0.5 shadow-xs shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleChangeCartQty(item.id, -1)}
+                          className="w-6 h-7 flex items-center justify-center rounded-lg hover:bg-white/20 font-black text-xs active:scale-90"
+                          title="Giảm số lượng trong giỏ"
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenCartModal}
+                          className="px-1.5 text-xs font-mono font-black"
+                          title="Đang có trong giỏ hàng (Bấm để mở giỏ)"
+                        >
+                          🛒 {formatNumber(Number(cartEntry.quantity) || 1)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleChangeCartQty(item.id, 1)}
+                          className="w-6 h-7 flex items-center justify-center rounded-lg hover:bg-white/20 font-black text-xs active:scale-90"
+                          title="Tăng số lượng trong giỏ"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAddToCart(item)}
+                        className="py-2 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 text-xs font-extrabold active:scale-95 transition-all flex items-center gap-1 shrink-0"
+                        title="Thêm vào giỏ hàng để bán gộp nhiều loại"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Giỏ hàng</span>
+                      </button>
+                    )}
 
                     {/* Nút 2: Nhập thêm hàng vào kho cho mục này */}
                     <button
@@ -1899,22 +2206,45 @@ export const SalesTab: React.FC<SalesTabProps> = ({
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Sản phẩm:</span>
-                <strong className="text-slate-900 font-black">{previewBill.productName}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Số lượng mua:</span>
-                <strong className="font-mono text-orange-700 font-black">
-                  {formatNumber(previewBill.quantity)} cái
-                </strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Đơn giá:</span>
-                <strong className="font-mono text-slate-900">
-                  {formatVND(previewBill.sellPrice)}
-                </strong>
-              </div>
+              {previewBill.lines && previewBill.lines.length > 0 ? (
+                <div className="space-y-1.5 pb-1.5 border-b border-slate-200/80">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                    Danh sách mặt hàng ({previewBill.lines.length} loại):
+                  </span>
+                  {previewBill.lines.map((line, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2">
+                      <span className="text-slate-800 font-bold truncate">
+                        {idx + 1}. {line.productName}{' '}
+                        <span className="text-orange-700 font-mono">
+                          (×{formatNumber(line.quantity)})
+                        </span>
+                      </span>
+                      <strong className="font-mono text-slate-900 shrink-0">
+                        {formatVND(line.lineTotal)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Sản phẩm:</span>
+                    <strong className="text-slate-900 font-black">{previewBill.productName}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Số lượng mua:</span>
+                    <strong className="font-mono text-orange-700 font-black">
+                      {formatNumber(previewBill.quantity)} cái
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Đơn giá:</span>
+                    <strong className="font-mono text-slate-900">
+                      {formatVND(previewBill.sellPrice)}
+                    </strong>
+                  </div>
+                </>
+              )}
               {previewBill.discountAmount && previewBill.discountAmount > 0 ? (
                 <div className="flex justify-between">
                   <span className="text-slate-500">Giảm giá:</span>
@@ -2037,6 +2367,294 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                 Xóa
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ================================================================= */}
+      {/* MODAL 7: GIỎ HÀNG & LÊN BILL GỘP NHIỀU LOẠI HÀNG                  */}
+      {/* ================================================================= */}
+      {isCartModalOpen && cartDetails.totalTypes > 0 && (
+        <div
+          className="fixed md:absolute inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsCartModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl flex flex-col border border-slate-100 animate-in slide-in-from-bottom duration-300 overflow-hidden"
+            style={{ maxHeight: `${maxModalHeight}px` }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2 shrink-0 sm:hidden" />
+
+            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                  <ShoppingCart className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    Giỏ Hàng ({cartDetails.totalTypes} loại • {formatNumber(cartDetails.totalUnits)} cái)
+                  </h3>
+                  <p className="text-[10px] text-slate-500">
+                    Bán gộp nhiều mặt hàng trong 1 lần lên Bill
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCartModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleConfirmCartSell}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            >
+              {/* Danh sách các mặt hàng trong giỏ */}
+              <div className="space-y-2">
+                {cartDetails.validEntries.map(({ entry, item, qty, lineTotal }, idx) => {
+                  const stock = (item.importQty || 0) - (item.soldQty || 0);
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs font-extrabold text-slate-900 block truncate">
+                            {idx + 1}. {item.productName}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Kho còn: <strong className="font-mono">{formatNumber(stock)}</strong> • Thành tiền:{' '}
+                            <strong className="font-mono text-emerald-700">
+                              {formatVND(lineTotal)}
+                            </strong>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFromCart(item.id)}
+                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600"
+                          title="Bỏ món này khỏi giỏ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 mb-0.5 block">
+                            Số lượng mua
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleChangeCartQty(item.id, -1)}
+                              className="w-8 h-8 rounded-xl bg-white border border-slate-200 font-black text-slate-700 hover:bg-slate-100 shrink-0"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              required
+                              value={formatInputDots(entry.quantity || String(qty))}
+                              onChange={e => handleSetCartQty(item.id, e.target.value)}
+                              className="w-full h-8 px-2 rounded-xl bg-white border border-slate-200 text-xs font-black font-mono text-center text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleChangeCartQty(item.id, 1)}
+                              className="w-8 h-8 rounded-xl bg-white border border-slate-200 font-black text-slate-700 hover:bg-slate-100 shrink-0"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 mb-0.5 block">
+                            Đơn giá (1 cái)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            value={formatInputDots(entry.unitPrice)}
+                            onChange={e => handleSetCartPrice(item.id, e.target.value)}
+                            className="w-full h-8 px-2.5 rounded-xl bg-white border border-slate-200 text-xs font-black font-mono text-emerald-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ngày bán */}
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-4">
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 block">Thứ</label>
+                  <div className="h-[38px] px-2.5 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-900">
+                    {getDayOfWeekVN(cartSaleDate)}
+                  </div>
+                </div>
+                <div className="col-span-8">
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                    Ngày bán hàng
+                  </label>
+                  <DateInputVN value={cartSaleDate} onChange={setCartSaleDate} required />
+                </div>
+              </div>
+
+              {/* Mục Giảm giá */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                  Giảm giá (Trừ vào tổng tiền bán thực tế)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Nhập số tiền giảm (VD: 5.000, 10.000...)"
+                  value={formatInputDots(cartDiscount)}
+                  onChange={e => setCartDiscount(parseInputDots(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl bg-amber-50/60 border border-amber-200 text-xs font-black font-mono text-amber-800 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+                <div className="flex gap-1 mt-1">
+                  {[0, 5000, 10000, 15000, 20000].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setCartDiscount(d === 0 ? '' : String(d))}
+                      className={`flex-1 py-0.5 rounded-lg text-[10px] font-mono font-bold border ${
+                        (Number(cartDiscount) || 0) === d
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      {d === 0 ? 'Không giảm' : `-${formatNumber(d)}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ghi chú tên khách hàng */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 mb-1 block">
+                  Tên khách / Ghi chú đơn bán (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  placeholder="VD: Chị Lan mua, khách lẻ..."
+                  value={cartCustomerNote}
+                  onChange={e => setCartCustomerNote(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              {/* Banner Tổng Tiền Bill & Nhập Tiền Khách Đưa */}
+              {(() => {
+                const currentTotal = Math.max(
+                  0,
+                  cartDetails.subtotal - Math.max(0, Number(cartDiscount) || 0)
+                );
+                const paidAmount = Number(cartCustomerPaid) || 0;
+                const changeAmount = paidAmount - currentTotal;
+
+                return (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] uppercase font-extrabold text-emerald-100 block">
+                          Thành tiền thu khách
+                        </span>
+                        {(Number(cartDiscount) || 0) > 0 && (
+                          <span className="text-[10px] font-mono text-amber-200 block">
+                            Đã giảm: -{formatVND(Number(cartDiscount) || 0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xl font-black font-mono">
+                        {formatVND(currentTotal)}
+                      </div>
+                    </div>
+
+                    {/* Phần nhập tiền khách đưa & tính tiền thừa trả khách */}
+                    <div className="pt-2.5 border-t border-white/20 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] font-bold text-emerald-50 shrink-0">
+                          Tiền khách đưa:
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Nhập tiền khách đưa..."
+                          value={formatInputDots(cartCustomerPaid)}
+                          onChange={e => setCartCustomerPaid(parseInputDots(e.target.value))}
+                          className="w-40 px-2.5 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-black font-mono text-right placeholder:text-slate-400 placeholder:font-normal outline-none focus:ring-2 focus:ring-amber-300"
+                        />
+                      </div>
+
+                      <div className="flex gap-1">
+                        {[
+                          { label: 'Đủ tiền', val: currentTotal },
+                          { label: '100.000', val: 100000 },
+                          { label: '200.000', val: 200000 },
+                          { label: '500.000', val: 500000 },
+                        ].map(btn => (
+                          <button
+                            key={btn.label}
+                            type="button"
+                            onClick={() => setCartCustomerPaid(String(btn.val))}
+                            className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
+                              paidAmount === btn.val && cartCustomerPaid !== ''
+                                ? 'bg-amber-300 text-slate-900 shadow-2xs'
+                                : 'bg-white/15 hover:bg-white/25 text-white'
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {cartCustomerPaid !== '' && paidAmount > 0 && (
+                        <div className="pt-1 flex items-center justify-between text-xs">
+                          <span className="font-bold text-emerald-100">
+                            {changeAmount >= 0 ? 'Tiền thừa trả khách:' : 'Khách còn thiếu:'}
+                          </span>
+                          <strong
+                            className={`font-mono text-sm font-black ${
+                              changeAmount >= 0 ? 'text-amber-200' : 'text-rose-200'
+                            }`}
+                          >
+                            {formatVND(Math.abs(changeAmount))}
+                          </strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsCartModalOpen(false)}
+                  className="w-24 py-2.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/25 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Xác Nhận Bán & Xuất Bill</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
