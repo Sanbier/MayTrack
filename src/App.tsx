@@ -121,6 +121,7 @@ export function App() {
   // Cloud Sync state
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudConnected, setCloudConnected] = useState<boolean>(() => !!getCloudUrl());
+  const [cloudErrorMsg, setCloudErrorMsg] = useState<string | null>(null);
   const isRemoteUpdating = useRef(false);
   const hasInitialCloudSynced = useRef(false);
   const lastLocalWriteRef = useRef<number>(0);
@@ -217,6 +218,7 @@ export function App() {
       saveSalesItems(payload.salesItems);
     }
     setCloudConnected(true);
+    setCloudErrorMsg(null);
     setTimeout(() => {
       isRemoteUpdating.current = false;
     }, 400);
@@ -234,8 +236,15 @@ export function App() {
         setIsCloudSyncing(true);
         await pushToCloud(orders, presets, settings, url, salesItems);
         setCloudConnected(true);
-      } catch (err) {
+        setCloudErrorMsg(null);
+      } catch (err: any) {
         console.warn('Auto-sync push failed, will retry later');
+        setCloudConnected(false);
+        setCloudErrorMsg(
+          err?.message === 'PERMISSION_DENIED'
+            ? 'Lỗi đồng bộ: Firebase khóa quyền đọc/ghi (Permission denied)'
+            : 'Chưa đồng bộ được lên đám mây — Dữ liệu đang lưu tạm trên máy này'
+        );
       } finally {
         setIsCloudSyncing(false);
       }
@@ -282,9 +291,15 @@ export function App() {
           }
           hasInitialCloudSynced.current = true;
           setCloudConnected(true);
+          setCloudErrorMsg(null);
         })
-        .catch(() => {
+        .catch((err: any) => {
           setCloudConnected(false);
+          setCloudErrorMsg(
+            err?.message === 'PERMISSION_DENIED'
+              ? 'Lỗi đồng bộ: Firebase khóa quyền đọc/ghi (Permission denied)'
+              : 'Mất kết nối đồng bộ đám mây — Dữ liệu đang lưu tạm trên máy này'
+          );
         });
     };
 
@@ -602,6 +617,23 @@ export function App() {
             </button>
           </div>
         </div>
+
+        {/* CẢNH BÁO NỔI NẾU LỖI ĐỒNG BỘ ĐÁM MÂY (KHÔNG BAO GIỜ ÂM THẦM MẤT KẾT NỐI) */}
+        {cloudErrorMsg && (
+          <div
+            onClick={() => setSettingsOpen(true)}
+            className="mb-2.5 p-2.5 rounded-2xl bg-rose-600 text-white shadow-md shadow-rose-600/20 flex items-center justify-between gap-2 cursor-pointer active:scale-98 transition-all"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold">
+              <AlertTriangle className="w-4 h-4 shrink-0 animate-bounce" />
+              <span>⚠️ {cloudErrorMsg}</span>
+            </div>
+            <span className="px-2.5 py-1 rounded-xl bg-white text-rose-700 text-[10px] font-black shrink-0">
+              Kiểm tra
+            </span>
+          </div>
+        )}
+
         {/* TAB 1: DASHBOARD (TỔNG QUAN) */}
         {currentTab === 'dashboard' && (
           <div className="space-y-3 animate-in fade-in duration-200">
