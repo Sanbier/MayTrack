@@ -1,14 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { WorkshopSettings, SewingOrder, StagePreset } from '../types';
-import { 
-  getCloudUrl, setCloudUrl, 
-  fetchFromCloud, pushToCloud, 
-  getLastSyncTime, CloudPayload 
+import { WorkshopSettings, SewingOrder, StagePreset, SalesItem } from '../types';
+import {
+  getCloudUrl,
+  setCloudUrl,
+  fetchFromCloud,
+  pushToCloud,
+  mergeCloudAndLocal,
+  getLastSyncTime,
+  CloudPayload,
 } from '../utils/cloudSync';
 import { useVisualViewport } from '../utils/useVisualViewport';
-import { 
-  X, Save, Home, User, Phone, Check, Cloud, 
-  CloudLightning, RefreshCw, AlertCircle, ExternalLink, ShieldCheck, Calendar 
+import {
+  X,
+  Save,
+  Home,
+  User,
+  Phone,
+  Check,
+  CloudLightning,
+  RefreshCw,
+  AlertCircle,
+  ExternalLink,
+  ShieldCheck,
+  Calendar,
+  Copy,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -18,8 +33,16 @@ interface SettingsModalProps {
   onSaveSettings: (settings: WorkshopSettings) => void;
   orders: SewingOrder[];
   presets: StagePreset[];
+  salesItems: SalesItem[];
   onCloudSyncApply: (payload: CloudPayload) => void;
 }
+
+const FIREBASE_PERMANENT_RULES = `{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}`;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -28,6 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveSettings,
   orders,
   presets,
+  salesItems,
   onCloudSyncApply,
 }) => {
   const viewportHeight = useVisualViewport();
@@ -35,6 +59,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [cloudUrlInput, setCloudUrlInput] = useState(getCloudUrl);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
+  const [isPermissionDenied, setIsPermissionDenied] = useState(false);
+  const [copiedRules, setCopiedRules] = useState(false);
   const [lastSync, setLastSync] = useState<number>(getLastSyncTime);
   const [saved, setSaved] = useState(false);
 
@@ -46,68 +72,125 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Test and connect cloud database
+  const handleCopyRules = () => {
+    navigator.clipboard.writeText(FIREBASE_PERMANENT_RULES);
+    setCopiedRules(true);
+    setTimeout(() => setCopiedRules(false), 2000);
+  };
+
+  // Test and connect cloud database (Smart Merge: không bao giờ làm mất dữ liệu máy hiện tại)
   const handleConnectCloud = async () => {
     const url = cloudUrlInput.trim();
     if (!url) {
       setCloudUrl('');
       setSyncStatus('idle');
+      setIsPermissionDenied(false);
       setStatusMessage('Đã tắt đồng bộ đám mây (chỉ lưu trên máy).');
       return;
     }
 
     setSyncStatus('testing');
-    setStatusMessage('Đang kết nối thử nghiệm...');
+    setIsPermissionDenied(false);
+    setStatusMessage('Đang kết nối và gộp dữ liệu an toàn...');
 
     try {
-      // 1. Thử đọc dữ liệu
       const remoteData = await fetchFromCloud(url);
       setCloudUrl(url);
 
-      if (remoteData && remoteData.orders && Array.isArray(remoteData.orders) && remoteData.orders.length > 0) {
-        onCloudSyncApply(remoteData);
+      if (remoteData) {
+        const { mergedOrders, mergedSales } = mergeCloudAndLocal(orders, salesItems, remoteData);
+        const nextPresets =
+          remoteData.presets && remoteData.presets.length > 0 ? remoteData.presets : presets;
+        const nextSettings =
+          remoteData.settings && Object.keys(remoteData.settings).length > 0
+            ? remoteData.settings
+            : form;
+
+        onCloudSyncApply({
+          ...remoteData,
+          orders: mergedOrders,
+          presets: nextPresets,
+          settings: nextSettings,
+          salesItems: mergedSales,
+        });
+
+        await pushToCloud(mergedOrders, nextPresets, nextSettings, url, mergedSales);
         setSyncStatus('success');
-        setStatusMessage(`Kết nối thành công! Đã đồng bộ ${remoteData.orders.length} công đoạn từ đám mây.`);
+        setStatusMessage(
+          `Đồng bộ thành công! Đã gộp an toàn ${mergedOrders.length} công đoạn may và ${mergedSales.length} mặt hàng bán.`
+        );
       } else {
-        await pushToCloud(orders, presets, form, url);
+        await pushToCloud(orders, presets, form, url, salesItems);
         setSyncStatus('success');
-        setStatusMessage('Kết nối thành công! Đã khởi tạo và tải dữ liệu lên đám mây.');
+        setStatusMessage('Kết nối thành công! Đã đẩy toàn bộ dữ liệu máy này lên đám mây.');
       }
       setLastSync(Date.now());
     } catch (err: any) {
       setSyncStatus('error');
-      setStatusMessage('Không thể kết nối! Vui lòng kiểm tra lại đường link và quyền Test Mode.');
+      if (err?.message === 'PERMISSION_DENIED') {
+        setIsPermissionDenied(true);
+        setStatusMessage(
+          'Firebase đang khóa quyền đọc/ghi (Hết hạn 30 ngày Test Mode). Dữ liệu trên máy của bạn vẫn an toàn 100%! Hãy mở lại quyền Rules bên dưới.'
+        );
+      } else {
+        setStatusMessage('Không thể kết nối! Vui lòng kiểm tra lại đường link và quyền Rules.');
+      }
     }
   };
 
   const handleManualPush = async () => {
     setSyncStatus('testing');
+    setIsPermissionDenied(false);
     try {
-      const ts = await pushToCloud(orders, presets, form, cloudUrlInput);
+      const ts = await pushToCloud(orders, presets, form, cloudUrlInput, salesItems);
       setLastSync(ts);
       setSyncStatus('success');
-      setStatusMessage('Đã đồng bộ toàn bộ dữ liệu máy này lên đám mây thành công!');
-    } catch (e) {
+      setStatusMessage(
+        `Đã đẩy toàn bộ dữ liệu máy này (${orders.length} công đoạn, ${salesItems.length} mặt hàng bán) lên đám mây thành công!`
+      );
+    } catch (err: any) {
       setSyncStatus('error');
-      setStatusMessage('Lỗi khi đẩy dữ liệu lên đám mây.');
+      if (err?.message === 'PERMISSION_DENIED') {
+        setIsPermissionDenied(true);
+        setStatusMessage(
+          'Firebase đang từ chối quyền ghi (Permission denied) do hết 30 ngày Test Mode. Xem hướng dẫn mở khóa bên dưới.'
+        );
+      } else {
+        setStatusMessage('Lỗi khi đẩy dữ liệu lên đám mây.');
+      }
     }
   };
 
   const handleManualPull = async () => {
     setSyncStatus('testing');
+    setIsPermissionDenied(false);
     try {
       const data = await fetchFromCloud(cloudUrlInput);
-      if (data && data.orders) {
-        onCloudSyncApply(data);
+      if (data) {
+        const { mergedOrders, mergedSales } = mergeCloudAndLocal(orders, salesItems, data);
+        onCloudSyncApply({
+          ...data,
+          orders: mergedOrders,
+          salesItems: mergedSales,
+        });
         setLastSync(Date.now());
         setSyncStatus('success');
-        setStatusMessage(`Đã tải về thành công ${data.orders.length} công đoạn mới nhất!`);
+        setStatusMessage(
+          `Đã tải & gộp an toàn ${mergedOrders.length} công đoạn và ${mergedSales.length} mặt hàng bán!`
+        );
       } else {
         setStatusMessage('Đám mây hiện chưa có dữ liệu.');
       }
-    } catch (e) {
+    } catch (err: any) {
       setSyncStatus('error');
-      setStatusMessage('Lỗi khi tải dữ liệu từ đám mây.');
+      if (err?.message === 'PERMISSION_DENIED') {
+        setIsPermissionDenied(true);
+        setStatusMessage(
+          'Firebase đang từ chối quyền đọc (Permission denied) do hết 30 ngày Test Mode. Xem hướng dẫn mở khóa bên dưới.'
+        );
+      } else {
+        setStatusMessage('Lỗi khi tải dữ liệu từ đám mây.');
+      }
     }
   };
 
@@ -126,7 +209,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed md:absolute inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
         className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300 pb-[calc(1rem+env(safe-area-inset-bottom))]"
         style={{
           maxHeight: `${maxModalHeight}px`,
@@ -141,10 +224,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Header */}
         <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">Cài Đặt & Đồng Bộ Đám Mây</h3>
-            <p className="text-[10px] text-slate-500">Tự động đồng bộ thời gian thực trên mọi thiết bị</p>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900">
+              Cài Đặt & Đồng Bộ Đám Mây
+            </h3>
+            <p className="text-[10px] text-slate-500">
+              Tự động gộp & bảo vệ dữ liệu trên mọi thiết bị
+            </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -163,17 +253,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Đồng bộ thời gian thực đa thiết bị
                   </h4>
                   <p className="text-[10px] text-indigo-700/80">
-                    Bấm trên iPhone ➔ Máy tính tự nhảy số ngay tức thì
+                    Tự động gộp dữ liệu — Không bao giờ làm mất đơn trên máy chính
                   </p>
                 </div>
               </div>
 
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
-                cloudUrlInput.trim() 
-                  ? 'bg-emerald-100 text-emerald-800' 
-                  : 'bg-slate-200 text-slate-600'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${cloudUrlInput.trim() ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                  cloudUrlInput.trim()
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    cloudUrlInput.trim() ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                  }`}
+                />
                 {cloudUrlInput.trim() ? 'Đang bật' : 'Chưa bật'}
               </span>
             </div>
@@ -182,7 +278,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <label className="text-[11px] font-bold text-slate-700 block">
                 Link Firebase Realtime Database
               </label>
-              
+
               <div className="flex gap-1.5">
                 <input
                   type="url"
@@ -207,14 +303,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {statusMessage && (
-                <div className={`p-2 rounded-xl text-[11px] font-medium flex items-center gap-1.5 ${
-                  syncStatus === 'success' 
-                    ? 'bg-emerald-100 text-emerald-800' 
-                    : syncStatus === 'error'
-                    ? 'bg-rose-100 text-rose-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {syncStatus === 'error' ? <AlertCircle className="w-3.5 h-3.5 shrink-0" /> : <ShieldCheck className="w-3.5 h-3.5 shrink-0" />}
+                <div
+                  className={`p-2.5 rounded-xl text-[11px] font-medium flex items-start gap-1.5 ${
+                    syncStatus === 'success'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : syncStatus === 'error'
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}
+                >
+                  {syncStatus === 'error' ? (
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                  )}
                   <span>{statusMessage}</span>
                 </div>
               )}
@@ -222,35 +324,77 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {cloudUrlInput.trim() && (
                 <div className="pt-1.5 flex items-center justify-between text-[11px] text-slate-500">
                   <span>
-                    Đồng bộ lần cuối: {lastSync ? new Date(lastSync).toLocaleTimeString('vi-VN') : 'Vừa xong'}
+                    Đồng bộ lần cuối:{' '}
+                    {lastSync ? new Date(lastSync).toLocaleTimeString('vi-VN') : 'Vừa xong'}
                   </span>
                   <div className="flex gap-1.5">
                     <button
                       type="button"
                       onClick={handleManualPull}
-                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 active:scale-95"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 active:scale-95"
                     >
-                      Tải về
+                      Tải & Gộp về
                     </button>
                     <button
                       type="button"
                       onClick={handleManualPush}
-                      className="px-2 py-1 rounded-lg bg-indigo-100 text-indigo-800 font-semibold hover:bg-indigo-200 active:scale-95"
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 active:scale-95 shadow-2xs"
                     >
-                      Đẩy lên
+                      Đẩy máy này lên mây
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Help box */}
-              <div className="mt-2 p-2.5 rounded-xl bg-white/70 border border-slate-200/60 text-[11px] text-slate-600 space-y-1">
-                <span className="font-bold text-slate-800 block">💡 Cách tạo Database miễn phí (chỉ mất 1 phút):</span>
-                <ol className="list-decimal pl-4 space-y-0.5 text-slate-600 text-[10px]">
-                  <li>Vào <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-indigo-600 font-bold underline inline-flex items-center gap-0.5">console.firebase.google.com <ExternalLink className="w-2.5 h-2.5" /></a> bấm <strong>Create a project</strong>.</li>
-                  <li>Vào mục <strong>Realtime Database</strong> ➔ Bấm <strong>Create Database</strong> ➔ Chọn chế độ <strong>Start in test mode</strong>.</li>
-                  <li>Copy link hiển thị trên đầu (dạng <code>https://...firebasedatabase.app</code>) dán vào ô trên là xong!</li>
+              {/* Hướng dẫn mở khóa quyền Rules vĩnh viễn trên Firebase */}
+              <div
+                className={`mt-2 p-3 rounded-xl border text-[11px] space-y-2 ${
+                  isPermissionDenied
+                    ? 'bg-amber-50 border-amber-300 text-amber-950'
+                    : 'bg-white/80 border-slate-200/70 text-slate-600'
+                }`}
+              >
+                <span className="font-extrabold text-slate-900 block">
+                  🔓 Cách mở khóa đồng bộ vĩnh viễn (Khi Firebase hết hạn 30 ngày Test Mode):
+                </span>
+                <ol className="list-decimal pl-4 space-y-1 text-[10px]">
+                  <li>
+                    Vào{' '}
+                    <a
+                      href="https://console.firebase.google.com/project/maytrack/database/maytrack-default-rtdb/rules"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-600 font-bold underline inline-flex items-center gap-0.5"
+                    >
+                      Firebase Realtime Database ➔ Rules (Quy tắc){' '}
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </li>
+                  <li>
+                    Thay nội dung trong ô Rules bằng đoạn dưới đây rồi bấm{' '}
+                    <strong>Publish (Xuất bản)</strong>:
+                  </li>
                 </ol>
+
+                <div className="relative">
+                  <pre className="p-2.5 rounded-xl bg-slate-900 text-emerald-300 font-mono text-[10px] overflow-x-auto">
+                    {FIREBASE_PERMANENT_RULES}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={handleCopyRules}
+                    className="absolute right-2 top-2 px-2 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold flex items-center gap-1"
+                  >
+                    {copiedRules ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedRules ? 'Đã copy' : 'Copy Rules'}</span>
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-emerald-800 font-bold">
+                  ✅ Sau khi bấm Publish trên Firebase, quay lại máy đang có dữ liệu bấm nút{' '}
+                  <strong>"Đẩy máy này lên mây"</strong> — toàn bộ dữ liệu của bạn sẽ sang máy kia
+                  ngay lập tức mà không mất bất kỳ thông tin nào!
+                </p>
               </div>
             </div>
           </div>
@@ -318,7 +462,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   max="28"
                   required
                   value={form.payCycleClosingDay ?? 3}
-                  onChange={e => setForm({ ...form, payCycleClosingDay: Math.max(1, Math.min(28, parseInt(e.target.value, 10) || 3)) })}
+                  onChange={e =>
+                    setForm({
+                      ...form,
+                      payCycleClosingDay: Math.max(
+                        1,
+                        Math.min(28, parseInt(e.target.value, 10) || 3)
+                      ),
+                    })
+                  }
                   className="w-24 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-center font-mono"
                 />
                 <span className="text-xs text-slate-700 font-semibold">
@@ -326,7 +478,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 mt-1">
-                Chu kỳ công sẽ tính từ ngày {(form.payCycleClosingDay ?? 3) + 1} tháng này đến ngày {form.payCycleClosingDay ?? 3} tháng sau để chốt lương lãnh tiền.
+                Chu kỳ công sẽ tính từ ngày {(form.payCycleClosingDay ?? 3) + 1} tháng này đến ngày{' '}
+                {form.payCycleClosingDay ?? 3} tháng sau để chốt lương lãnh tiền.
               </p>
             </div>
 

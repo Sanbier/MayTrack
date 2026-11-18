@@ -8,7 +8,7 @@ import {
   INITIAL_ORDERS, DEFAULT_PRESETS, DEFAULT_SETTINGS, INITIAL_SALES_ITEMS 
 } from './utils/storage';
 import { 
-  getCloudUrl, fetchFromCloud, pushToCloud, 
+  getCloudUrl, fetchFromCloud, pushToCloud, mergeCloudAndLocal,
   subscribeToCloudUpdates, CloudPayload 
 } from './utils/cloudSync';
 import { formatVND, formatNumber, formatKg, formatDateVN, getDeliveryUrgency, getCurrentPayrollMonth, getPayrollPeriodInfo, isOrderInPayrollPeriod, PayrollPeriodInfo } from './utils/format';
@@ -252,33 +252,53 @@ export function App() {
       return;
     }
 
+    const syncAndMergeFromCloud = () => {
+      if (Date.now() - lastLocalWriteRef.current < 3500) return Promise.resolve();
+      return fetchFromCloud(url)
+        .then(data => {
+          if (Date.now() - lastLocalWriteRef.current < 3500) return;
+          if (data) {
+            const localOrds = loadOrders();
+            const localSales = loadSalesItems();
+            const { mergedOrders, mergedSales, hasLocalUnsyncedChanges } = mergeCloudAndLocal(
+              localOrds,
+              localSales,
+              data
+            );
+            applyCloudPayload({
+              ...data,
+              orders: mergedOrders,
+              salesItems: mergedSales,
+            });
+            if (hasLocalUnsyncedChanges) {
+              pushToCloud(
+                mergedOrders,
+                data.presets && data.presets.length > 0 ? data.presets : loadPresets(),
+                data.settings && Object.keys(data.settings).length > 0 ? data.settings : loadSettings(),
+                url,
+                mergedSales
+              ).catch(() => {});
+            }
+          }
+          hasInitialCloudSynced.current = true;
+          setCloudConnected(true);
+        })
+        .catch(() => {
+          setCloudConnected(false);
+        });
+    };
+
     setIsCloudSyncing(true);
-    fetchFromCloud(url)
-      .then(data => {
-        if (data) {
-          applyCloudPayload(data);
-        }
-        hasInitialCloudSynced.current = true;
-        setCloudConnected(true);
-      })
-      .catch(() => {
-        hasInitialCloudSynced.current = true;
-        setCloudConnected(false);
-      })
-      .finally(() => {
-        setIsCloudSyncing(false);
-      });
+    syncAndMergeFromCloud().finally(() => {
+      setIsCloudSyncing(false);
+    });
 
     const unsubscribe = subscribeToCloudUpdates(url, payload => {
       applyCloudPayload(payload);
     });
 
     const handleSync = () => {
-      if (Date.now() - lastLocalWriteRef.current < 3500) return;
-      fetchFromCloud(url).then(data => {
-        if (Date.now() - lastLocalWriteRef.current < 3500) return;
-        if (data) applyCloudPayload(data);
-      }).catch(() => {});
+      syncAndMergeFromCloud();
     };
 
     const handleVisibility = () => {
@@ -1149,10 +1169,14 @@ export function App() {
         orders={orders}
         presets={presets}
         settings={settings}
-        onRestore={(o, p, s) => {
+        salesItems={salesItems}
+        onRestore={(o, p, s, si) => {
           setOrders(o);
           setPresets(p);
           setSettings(s);
+          if (Array.isArray(si)) {
+            setSalesItems(si);
+          }
         }}
         onResetSample={handleResetSample}
       />
@@ -1164,6 +1188,7 @@ export function App() {
         onSaveSettings={setSettings}
         orders={orders}
         presets={presets}
+        salesItems={salesItems}
         onCloudSyncApply={applyCloudPayload}
       />
       </div>

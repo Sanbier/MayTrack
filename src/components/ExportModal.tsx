@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { SewingOrder, StagePreset, WorkshopSettings } from '../types';
+import { SewingOrder, StagePreset, WorkshopSettings, SalesItem } from '../types';
 import { exportToCSV, exportJSONBackup } from '../utils/storage';
 import { useVisualViewport } from '../utils/useVisualViewport';
 import { X, FileSpreadsheet, Download, Upload, RefreshCw } from 'lucide-react';
@@ -10,7 +10,13 @@ interface ExportModalProps {
   orders: SewingOrder[];
   presets: StagePreset[];
   settings: WorkshopSettings;
-  onRestore: (orders: SewingOrder[], presets: StagePreset[], settings: WorkshopSettings) => void;
+  salesItems: SalesItem[];
+  onRestore: (
+    orders: SewingOrder[],
+    presets: StagePreset[],
+    settings: WorkshopSettings,
+    salesItems?: SalesItem[]
+  ) => void;
   onResetSample: () => void;
 }
 
@@ -20,6 +26,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   orders,
   presets,
   settings,
+  salesItems,
   onRestore,
   onResetSample,
 }) => {
@@ -38,7 +45,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
         if (parsed.orders && Array.isArray(parsed.orders)) {
-          onRestore(parsed.orders, parsed.presets || presets, parsed.settings || settings);
+          onRestore(
+            parsed.orders,
+            parsed.presets || presets,
+            parsed.settings || settings,
+            Array.isArray(parsed.salesItems) ? parsed.salesItems : undefined
+          );
           alert('Khôi phục dữ liệu thành công!');
           onClose();
         } else {
@@ -55,7 +67,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div className="fixed md:absolute inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
         className="w-full max-w-md bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl p-4 sm:p-5 border border-slate-100 animate-in slide-in-from-bottom duration-300 overflow-y-auto overscroll-contain pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         style={{
           maxHeight: `${maxModalHeight}px`,
@@ -103,7 +115,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           {/* Action 2: Export JSON Backup */}
           <button
             onClick={() => {
-              exportJSONBackup(orders, presets, settings);
+              exportJSONBackup(orders, presets, settings, salesItems);
             }}
             className="w-full p-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100/70 border border-indigo-200 text-left flex items-start gap-3 transition-all active:scale-98"
           >
@@ -115,7 +127,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 Sao lưu tệp dự phòng (JSON)
               </h4>
               <p className="text-[11px] text-indigo-700/80 mt-0.5">
-                Lưu trữ toàn bộ đơn hàng, bảng giá và cài đặt để chuyển sang máy khác.
+                Lưu trữ toàn bộ công đoạn may, kho bán hàng, bảng giá và cài đặt để chuyển sang máy khác.
               </p>
             </div>
           </button>

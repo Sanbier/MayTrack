@@ -88,6 +88,9 @@ export async function fetchFromCloud(baseUrl?: string): Promise<CloudPayload | n
     });
 
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('PERMISSION_DENIED');
+      }
       throw new Error(`HTTP Error: ${res.status}`);
     }
 
@@ -143,6 +146,9 @@ export async function pushToCloud(
     });
 
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('PERMISSION_DENIED');
+      }
       throw new Error(`Lỗi cập nhật đám mây: ${res.status}`);
     }
 
@@ -218,5 +224,92 @@ export function subscribeToCloudUpdates(
     if (eventSource) {
       eventSource.close();
     }
+  };
+}
+
+/**
+ * Gộp thông minh dữ liệu trên máy (Local) và dữ liệu Đám mây (Cloud)
+ * Đảm bảo khi kết nối lại đám mây sau thời gian mất mạng / hết hạn quyền,
+ * toàn bộ đơn hàng và mặt hàng bán mới nhập trên máy chính KHÔNG BAO GIỜ bị mất!
+ */
+export function mergeCloudAndLocal(
+  localOrders: SewingOrder[],
+  localSales: SalesItem[],
+  cloud: CloudPayload
+): {
+  mergedOrders: SewingOrder[];
+  mergedSales: SalesItem[];
+  hasLocalUnsyncedChanges: boolean;
+} {
+  const cloudOrders = Array.isArray(cloud.orders) ? cloud.orders : [];
+  const cloudSales = Array.isArray(cloud.salesItems) ? cloud.salesItems : [];
+  const cloudLastUpdated = cloud.lastUpdated || 0;
+
+  let hasLocalUnsyncedChanges = false;
+
+  const orderMap = new Map<string, SewingOrder>();
+  cloudOrders.forEach(o => {
+    if (o && o.id) orderMap.set(o.id, o);
+  });
+
+  const cloudHasRealOrders = cloudOrders.some(o => o && o.id && !o.id.startsWith('sample_'));
+
+  localOrders.forEach(localOrd => {
+    if (!localOrd || !localOrd.id) return;
+    if (localOrd.id.startsWith('sample_') && cloudHasRealOrders) return;
+
+    const existingCloud = orderMap.get(localOrd.id);
+    const localTime = localOrd.updatedAt || localOrd.createdAt || 0;
+
+    if (!existingCloud) {
+      if (cloudOrders.length === 0 || localTime > cloudLastUpdated) {
+        orderMap.set(localOrd.id, localOrd);
+        hasLocalUnsyncedChanges = true;
+      }
+    } else {
+      const cloudTime = existingCloud.updatedAt || existingCloud.createdAt || 0;
+      if (localTime > cloudTime) {
+        orderMap.set(localOrd.id, localOrd);
+        hasLocalUnsyncedChanges = true;
+      }
+    }
+  });
+
+  const mergedOrders = Array.from(orderMap.values()).sort(
+    (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+  );
+
+  const salesMap = new Map<string, SalesItem>();
+  cloudSales.forEach(s => {
+    if (s && s.id) salesMap.set(s.id, s);
+  });
+
+  localSales.forEach(localItem => {
+    if (!localItem || !localItem.id) return;
+    const existingCloud = salesMap.get(localItem.id);
+    const localTime = localItem.updatedAt || localItem.createdAt || 0;
+
+    if (!existingCloud) {
+      if (cloudSales.length === 0 || localTime > cloudLastUpdated) {
+        salesMap.set(localItem.id, localItem);
+        hasLocalUnsyncedChanges = true;
+      }
+    } else {
+      const cloudTime = existingCloud.updatedAt || existingCloud.createdAt || 0;
+      if (localTime > cloudTime) {
+        salesMap.set(localItem.id, localItem);
+        hasLocalUnsyncedChanges = true;
+      }
+    }
+  });
+
+  const mergedSales = Array.from(salesMap.values()).sort(
+    (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+  );
+
+  return {
+    mergedOrders,
+    mergedSales,
+    hasLocalUnsyncedChanges,
   };
 }
