@@ -1132,19 +1132,19 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                     </div>
                   )}
 
-                  {/* Hàng 3: Các nút hành động 1 chạm (Bán Hàng + Giỏ Hàng + Nhập thêm + Sửa + Xóa) */}
+                  {/* Hàng 3: Các nút hành động 1 chạm (Bán + Giỏ + Nhập + Sửa + Xóa) */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                    {/* Nút chính 1: Bấm Bán Hàng lẻ 1 món */}
+                    {/* Nút chính 1: Bấm Bán lẻ 1 món */}
                     <button
                       type="button"
                       onClick={() => handleOpenSellModal(item)}
                       className="flex-1 py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1"
                     >
                       <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                      <span>Bán Hàng</span>
+                      <span>Bán</span>
                     </button>
 
-                    {/* Nút chính 2: Thêm vào Giỏ hàng (để chọn nhiều loại hàng muốn bán) */}
+                    {/* Nút chính 2: Thêm vào Giỏ (để chọn nhiều loại hàng muốn bán) */}
                     {cartEntry ? (
                       <div className="flex items-center bg-indigo-600 text-white rounded-xl p-0.5 shadow-xs shrink-0">
                         <button
@@ -1180,11 +1180,11 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                         title="Thêm vào giỏ hàng để bán gộp nhiều loại"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Giỏ hàng</span>
+                        <span>Giỏ</span>
                       </button>
                     )}
 
-                    {/* Nút 2: Nhập thêm hàng vào kho cho mục này */}
+                    {/* Nút 3: Nhập thêm hàng vào kho cho mục này */}
                     <button
                       type="button"
                       onClick={() => handleOpenRestockModal(item)}
@@ -1192,7 +1192,7 @@ export const SalesTab: React.FC<SalesTabProps> = ({
                       title="Nhập thêm số lượng hàng mới về"
                     >
                       <PackagePlus className="w-3.5 h-3.5" />
-                      <span>+Nhập thêm</span>
+                      <span>Nhập</span>
                     </button>
 
                     {/* Nút Sửa */}
